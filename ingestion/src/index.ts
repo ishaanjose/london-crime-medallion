@@ -1,8 +1,9 @@
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { extractLondonFiles, getArchiveMonth } from "./extract.js";
 import { landToBronze } from "./landToBronze.js";
-import { readLastArchiveInfo } from "./manifest.js";
+import { readLastArchiveInfo, writeArchiveInfo } from "./manifest.js";
 import { DOWNLOADS_DIR, EXTRACT_DIR } from "./paths.js";
 import {
   downloadArchive,
@@ -10,8 +11,8 @@ import {
   LATEST_ARCHIVE_URL,
 } from "./sources/policeUk.js";
 
-const archivePath = join(DOWNLOADS_DIR, "test.zip");
-const extractDir = join(EXTRACT_DIR, "test");
+const archivePath = join(DOWNLOADS_DIR, "latest.zip");
+const extractDir = join(EXTRACT_DIR, "latest");
 const latestArchiveInfo = await getLatestArchiveInfo();
 const lastArchiveInfo = await readLastArchiveInfo();
 
@@ -32,4 +33,7 @@ if (lastArchiveInfo?.md5 === latestArchiveInfo.md5) {
   const archiveName = await getArchiveMonth(extractDir);
   await landToBronze(extractDir, archiveName, "street");
   await landToBronze(extractDir, archiveName, "outcomes");
+  await writeArchiveInfo(latestArchiveInfo, archiveName);
+  await rm(EXTRACT_DIR, { recursive: true, force: true });
+  await rm(archivePath, { force: true });
 }

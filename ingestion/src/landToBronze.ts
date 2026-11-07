@@ -34,7 +34,10 @@ export async function landToBronze(
           ${quoteSql(join(extractDir, "*", `*-${dataset}.csv`))},
           all_varchar = true,
           union_by_name = true,
-          filename = true
+          filename = true,
+          -- Older outcomes CSVs hav quoted commas in LSOA names --
+          quote = '"',
+          escape = '"'
         )
       )
       TO ${quoteSql(archiveDir)}

@@ -12,6 +12,7 @@ interface ManifestEntry {
   lastModified: string;
   sizeBytes: number;
   ingestedAt: string;
+  archiveName: string;
 }
 
 function toArchiveInfo(entry: ManifestEntry): ArchiveInfo {
@@ -54,6 +55,7 @@ export async function readLastArchiveInfo(): Promise<ArchiveInfo | null> {
 
 export async function writeArchiveInfo(
   archiveInfo: ArchiveInfo,
+  archiveName: string,
 ): Promise<void> {
   const entries = await readEntries();
 
@@ -66,6 +68,7 @@ export async function writeArchiveInfo(
     lastModified: archiveInfo.lastModified.toISOString(),
     sizeBytes: archiveInfo.sizeBytes,
     ingestedAt: new Date().toISOString(),
+    archiveName,
   };
   entries.push(entry);
 
