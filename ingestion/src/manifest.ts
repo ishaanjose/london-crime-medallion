@@ -15,19 +15,6 @@ interface ManifestEntry {
   archiveName: string;
 }
 
-function toArchiveInfo(entry: ManifestEntry): ArchiveInfo {
-  const lastModified = new Date(entry.lastModified);
-  if (Number.isNaN(lastModified.getTime())) {
-    throw new Error("Manifest contains an invalid lastModified date");
-  }
-
-  return {
-    md5: entry.md5,
-    lastModified,
-    sizeBytes: entry.sizeBytes,
-  };
-}
-
 function parseManifest(contents: string): ManifestEntry[] {
   const manifest: unknown = JSON.parse(contents);
   if (!Array.isArray(manifest)) {
@@ -47,10 +34,9 @@ async function readEntries(): Promise<ManifestEntry[]> {
   }
 }
 
-export async function readLastArchiveInfo(): Promise<ArchiveInfo | null> {
+export async function hasIngested(md5: string): Promise<boolean> {
   const entries = await readEntries();
-  const lastEntry = entries.at(-1);
-  return lastEntry ? toArchiveInfo(lastEntry) : null;
+  return entries.some((entry) => entry.md5 === md5);
 }
 
 export async function writeArchiveInfo(
@@ -59,7 +45,7 @@ export async function writeArchiveInfo(
 ): Promise<void> {
   const entries = await readEntries();
 
-  if (entries.at(-1)?.md5 === archiveInfo.md5) {
+  if (entries.some((entry) => entry.md5 === archiveInfo.md5)) {
     return;
   }
 
