@@ -5,6 +5,8 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
 
+import { md5OfFile } from "./checksum.js";
+
 export const LATEST_ARCHIVE_URL =
   "https://data.police.uk/data/archive/latest.zip";
 
@@ -51,6 +53,7 @@ export async function downloadArchive(
   url: string,
   destPath: string,
   expectedSize: number,
+  expectedMd5: string,
 ): Promise<void> {
   const response = await fetch(url);
 
@@ -93,6 +96,13 @@ export async function downloadArchive(
     if (size !== expectedSize) {
       throw new Error(
         `Downloaded archive size mismatch: expected ${expectedSize}, got ${size}`,
+      );
+    }
+
+    const md5 = await md5OfFile(partPath);
+    if (md5 !== expectedMd5) {
+      throw new Error(
+        `Downloaded archive MD5 mismatch: expected ${expectedMd5}, got ${md5}`,
       );
     }
 

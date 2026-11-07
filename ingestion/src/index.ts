@@ -19,5 +19,6 @@ if (lastArchiveInfo?.md5 === latestArchiveInfo.md5) {
     LATEST_ARCHIVE_URL,
     join(DOWNLOADS_DIR, "test.zip"),
     latestArchiveInfo.sizeBytes,
+    latestArchiveInfo.md5,
   );
 }
