@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -34,8 +35,9 @@ export async function ingestArchive(
   console.log(`${name}: extracted ${extractedPaths.length} files`);
 
   const archiveName = await getArchiveMonth(extractDir);
-  await landToBronze(extractDir, archiveName, "street");
-  await landToBronze(extractDir, archiveName, "outcomes");
+  const batchId = randomUUID();
+  await landToBronze(extractDir, archiveName, "street", batchId);
+  await landToBronze(extractDir, archiveName, "outcomes", batchId);
   await writeArchiveInfo(archiveInfo, archiveName);
   await rm(extractDir, { recursive: true, force: true });
   await rm(archivePath, { force: true });
