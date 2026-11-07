@@ -1,0 +1,43 @@
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
+
+import { extractLondonFiles, getArchiveMonth } from "./extract.js";
+import { landToBronze } from "./landToBronze.js";
+import { hasIngested, writeArchiveInfo } from "./manifest.js";
+import { DOWNLOADS_DIR, EXTRACT_DIR } from "./paths.js";
+import {
+  downloadArchive,
+  getArchiveInfo,
+} from "./sources/policeUk.js";
+
+export async function ingestArchive(
+  url: string,
+  name: string,
+): Promise<void> {
+  const archiveInfo = await getArchiveInfo(url);
+  if (await hasIngested(archiveInfo.md5)) {
+    console.log(`${name}: up to date`);
+    return;
+  }
+
+  console.log(`${name}: new archive, needs ingesting`);
+
+  const archivePath = join(DOWNLOADS_DIR, `${name}.zip`);
+  const extractDir = join(EXTRACT_DIR, name);
+  await downloadArchive(
+    url,
+    archivePath,
+    archiveInfo.sizeBytes,
+    archiveInfo.md5,
+  );
+
+  const extractedPaths = await extractLondonFiles(archivePath, extractDir);
+  console.log(`${name}: extracted ${extractedPaths.length} files`);
+
+  const archiveName = await getArchiveMonth(extractDir);
+  await landToBronze(extractDir, archiveName, "street");
+  await landToBronze(extractDir, archiveName, "outcomes");
+  await writeArchiveInfo(archiveInfo, archiveName);
+  await rm(extractDir, { recursive: true, force: true });
+  await rm(archivePath, { force: true });
+}
