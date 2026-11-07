@@ -7,6 +7,7 @@ import type { ReadableStream } from "node:stream/web";
 
 import { isFileNotFound } from "../fsUtils.js";
 import { md5OfFile } from "../checksum.js";
+import { withRetry } from "../retry.js";
 
 export const LATEST_ARCHIVE_URL =
   "https://data.police.uk/data/archive/latest.zip";
@@ -33,13 +34,15 @@ function requireHeader(headers: Headers, name: string): string {
 }
 
 export async function getArchiveInfo(url: string): Promise<ArchiveInfo> {
-  const response = await fetch(url, { method: "HEAD" });
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch headers: ${response.status} ${response.statusText}`,
-    );
-  }
+  const response = await withRetry(async () => {
+    const response = await fetch(url, { method: "HEAD" });
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch headers: ${response.status} ${response.statusText}`,
+      );
+    }
+    return response;
+  });
 
   const md5 = requireHeader(response.headers, "x-amz-meta-md5").toLowerCase();
   const lastModified = new Date(
