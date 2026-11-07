@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: police_uk
+    tables:
+      - name: street
+        meta:
+          external_location: "read_parquet('../data/bronze/police_uk/street/*/*/*.parquet', hive_partitioning = true, file_row_number = true)"
+      - name: outcomes
+        meta:
+          external_location: "read_parquet('../data/bronze/police_uk/outcomes/*/*/*.parquet', hive_partitioning = true, file_row_number = true)"
