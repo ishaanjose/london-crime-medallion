@@ -1,13 +1,28 @@
 import { randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { downloadFile } from "./download.js";
 import { landMetToBronze } from "./landMetToBronze.js";
+import {
+  hasIngestedMetRelease,
+  metReleaseKey,
+  writeMetRelease,
+} from "./manifest.js";
 import { DOWNLOADS_DIR } from "./paths.js";
 import { getLatestMetRelease } from "./sources/metDatastore.js";
 
 export async function ingestMet(): Promise<void> {
   const release = await getLatestMetRelease();
+  const key = metReleaseKey(
+    release.recent.checkHash,
+    release.historical.checkHash,
+  );
+  if (await hasIngestedMetRelease(key)) {
+    console.log(`met ${release.releaseDate}: up to date`);
+    return;
+  }
+
   const batchId = randomUUID();
   const releaseDir = join(DOWNLOADS_DIR, "met", release.releaseDate);
 
@@ -33,4 +48,6 @@ export async function ingestMet(): Promise<void> {
     "historical",
     batchId,
   );
+  await writeMetRelease(release);
+  await rm(releaseDir, { recursive: true, force: true });
 }
