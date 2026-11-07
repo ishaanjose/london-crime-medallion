@@ -5,7 +5,8 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
 
-import { md5OfFile } from "./checksum.js";
+import { isFileNotFound } from "../fsUtils.js";
+import { md5OfFile } from "../checksum.js";
 
 export const LATEST_ARCHIVE_URL =
   "https://data.police.uk/data/archive/latest.zip";
@@ -56,12 +57,12 @@ export async function downloadArchive(
   expectedMd5: string,
 ): Promise<void> {
   try {
-    if (await md5OfFile(destPath) === expectedMd5) {
+    if ((await md5OfFile(destPath)) === expectedMd5) {
       console.log("already downloaded");
       return;
     }
   } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+    if (!isFileNotFound(error)) {
       throw error;
     }
   }

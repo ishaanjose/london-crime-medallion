@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { isFileNotFound } from "./fsUtils.js";
 import { MANIFEST_PATH } from "./paths.js";
 import type { ArchiveInfo } from "./sources/policeUk.js";
 
@@ -38,7 +39,7 @@ async function readEntries(): Promise<ManifestEntry[]> {
   try {
     return parseManifest(await readFile(MANIFEST_PATH, "utf8"));
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (isFileNotFound(error)) {
       return [];
     }
     throw error;
