@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
-import { extractLondonFiles } from "./extract.js";
+import { extractLondonFiles, getArchiveMonth } from "./extract.js";
+import { landToBronze } from "./landToBronze.js";
 import { readLastArchiveInfo } from "./manifest.js";
 import { DOWNLOADS_DIR, EXTRACT_DIR } from "./paths.js";
 import {
@@ -27,4 +28,8 @@ if (lastArchiveInfo?.md5 === latestArchiveInfo.md5) {
 
   const extractedPaths = await extractLondonFiles(archivePath, extractDir);
   console.log(`extracted ${extractedPaths.length} files`);
+
+  const archiveName = await getArchiveMonth(extractDir);
+  await landToBronze(extractDir, archiveName, "street");
+  await landToBronze(extractDir, archiveName, "outcomes");
 }

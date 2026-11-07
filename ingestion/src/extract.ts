@@ -1,10 +1,24 @@
 import { createWriteStream } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, readdir, rm } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import yauzl from "yauzl";
 
 const LONDON_FILE = /^(\d{4}-\d{2})\/\1-(metropolitan|city-of-london)-(street|outcomes)\.csv$/;
+
+export async function getArchiveMonth(extractDir: string): Promise<string> {
+  const archiveMonth = (
+    await readdir(extractDir, { withFileTypes: true })
+  )
+    .filter((entry) => entry.isDirectory() && /^\d{4}-\d{2}$/.test(entry.name))
+    .map((entry) => entry.name)
+    .sort()
+    .at(-1);
+  if (!archiveMonth) {
+    throw new Error("No month folders found in extracted archive");
+  }
+  return archiveMonth;
+}
 
 function isInsideDirectory(path: string, directory: string): boolean {
   const relativePath = relative(directory, path);
