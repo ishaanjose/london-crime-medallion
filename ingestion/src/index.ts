@@ -7,13 +7,13 @@ import { readLastArchiveInfo, writeArchiveInfo } from "./manifest.js";
 import { DOWNLOADS_DIR, EXTRACT_DIR } from "./paths.js";
 import {
   downloadArchive,
-  getLatestArchiveInfo,
+  getArchiveInfo,
   LATEST_ARCHIVE_URL,
 } from "./sources/policeUk.js";
 
 const archivePath = join(DOWNLOADS_DIR, "latest.zip");
 const extractDir = join(EXTRACT_DIR, "latest");
-const latestArchiveInfo = await getLatestArchiveInfo();
+const latestArchiveInfo = await getArchiveInfo(LATEST_ARCHIVE_URL);
 const lastArchiveInfo = await readLastArchiveInfo();
 
 if (lastArchiveInfo?.md5 === latestArchiveInfo.md5) {
