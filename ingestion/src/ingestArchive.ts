@@ -1,14 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
+import { downloadFile } from "./download.js";
 import { extractLondonFiles, getArchiveMonth } from "./extract.js";
 import { landToBronze } from "./landToBronze.js";
 import { hasIngested, writeArchiveInfo } from "./manifest.js";
 import { DOWNLOADS_DIR, EXTRACT_DIR } from "./paths.js";
-import {
-  downloadArchive,
-  getArchiveInfo,
-} from "./sources/policeUk.js";
+import { getArchiveInfo } from "./sources/policeUk.js";
 
 export async function ingestArchive(
   url: string,
@@ -24,10 +23,11 @@ export async function ingestArchive(
 
   const archivePath = join(DOWNLOADS_DIR, `${name}.zip`);
   const extractDir = join(EXTRACT_DIR, name);
-  await downloadArchive(
+  await downloadFile(
     url,
     archivePath,
     archiveInfo.sizeBytes,
+    name,
     archiveInfo.md5,
   );
 
@@ -35,8 +35,9 @@ export async function ingestArchive(
   console.log(`${name}: extracted ${extractedPaths.length} files`);
 
   const archiveName = await getArchiveMonth(extractDir);
-  await landToBronze(extractDir, archiveName, "street");
-  await landToBronze(extractDir, archiveName, "outcomes");
+  const batchId = randomUUID();
+  await landToBronze(extractDir, archiveName, "street", batchId);
+  await landToBronze(extractDir, archiveName, "outcomes", batchId);
   await writeArchiveInfo(archiveInfo, archiveName);
   await rm(extractDir, { recursive: true, force: true });
   await rm(archivePath, { force: true });
