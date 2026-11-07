@@ -1,12 +1,9 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
+import { MANIFEST_PATH } from "./paths.js";
 import type { ArchiveInfo } from "./sources/policeUk.js";
 
-const MANIFEST_PATH = fileURLToPath(
-  new URL("../../data/bronze/police_uk/_manifest.json", import.meta.url),
-);
 const TEMP_MANIFEST_PATH = `${MANIFEST_PATH}.tmp`;
 
 interface ManifestEntry {
