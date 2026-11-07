@@ -1,5 +1,13 @@
 version: 2
 
+seeds:
+  - name: police_uk_crime_type_map
+    columns:
+      - name: crime_type
+        data_tests:
+          - unique
+          - not_null
+
 models:
   - name: int_police_uk__street_deduped
     columns:
@@ -29,3 +37,8 @@ models:
           - not_null:
               config:
                 where: "crime_type <> 'Anti-social behaviour' and month >= '2011-12-01'"
+  - name: police_uk__street_crimes
+    columns:
+      - name: crime_group
+        data_tests:
+          - not_null
