@@ -55,6 +55,17 @@ export async function downloadArchive(
   expectedSize: number,
   expectedMd5: string,
 ): Promise<void> {
+  try {
+    if (await md5OfFile(destPath) === expectedMd5) {
+      console.log("already downloaded");
+      return;
+    }
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      throw error;
+    }
+  }
+
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -68,9 +79,7 @@ export async function downloadArchive(
 
   await mkdir(dirname(destPath), { recursive: true });
 
-  const archive = Readable.fromWeb(
-    response.body as ReadableStream,
-  );
+  const archive = Readable.fromWeb(response.body as ReadableStream);
   const partPath = `${destPath}.part`;
   let downloadedSize = 0;
   let nextProgress = 5;
