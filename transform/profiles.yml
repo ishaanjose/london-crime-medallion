@@ -1,0 +1,6 @@
+london_crime:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ../data/warehouse.duckdb
