@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { extractLondonFiles, getArchiveMonth } from "./extract.js";
 import { landToBronze } from "./landToBronze.js";
-import { readLastArchiveInfo, writeArchiveInfo } from "./manifest.js";
+import { hasIngested, writeArchiveInfo } from "./manifest.js";
 import { DOWNLOADS_DIR, EXTRACT_DIR } from "./paths.js";
 import {
   downloadArchive,
@@ -14,9 +14,9 @@ import {
 const archivePath = join(DOWNLOADS_DIR, "latest.zip");
 const extractDir = join(EXTRACT_DIR, "latest");
 const latestArchiveInfo = await getArchiveInfo(LATEST_ARCHIVE_URL);
-const lastArchiveInfo = await readLastArchiveInfo();
+const alreadyIngested = await hasIngested(latestArchiveInfo.md5);
 
-if (lastArchiveInfo?.md5 === latestArchiveInfo.md5) {
+if (alreadyIngested) {
   console.log("up to date");
 } else {
   console.log("new archive, needs ingesting");
