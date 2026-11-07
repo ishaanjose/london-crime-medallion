@@ -1,6 +1,12 @@
 select
+    md5(archive || '/' || month || '/' || file_row_number) as record_id,
     nullif("Crime ID", '') as crime_id,
-    nullif("Reported by", '') as force,
+    case
+        when lower(filename) like '%-metropolitan-street.csv'
+            then 'Metropolitan Police Service'
+        when lower(filename) like '%-city-of-london-street.csv'
+            then 'City of London Police'
+    end as force,
     cast(nullif("Longitude", '') as double) as longitude,
     cast(nullif("Latitude", '') as double) as latitude,
     nullif("Location", '') as location,
