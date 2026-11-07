@@ -1,14 +1,12 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
+import { downloadFile } from "./download.js";
 import { extractLondonFiles, getArchiveMonth } from "./extract.js";
 import { landToBronze } from "./landToBronze.js";
 import { hasIngested, writeArchiveInfo } from "./manifest.js";
 import { DOWNLOADS_DIR, EXTRACT_DIR } from "./paths.js";
-import {
-  downloadArchive,
-  getArchiveInfo,
-} from "./sources/policeUk.js";
+import { getArchiveInfo } from "./sources/policeUk.js";
 
 export async function ingestArchive(
   url: string,
@@ -24,10 +22,11 @@ export async function ingestArchive(
 
   const archivePath = join(DOWNLOADS_DIR, `${name}.zip`);
   const extractDir = join(EXTRACT_DIR, name);
-  await downloadArchive(
+  await downloadFile(
     url,
     archivePath,
     archiveInfo.sizeBytes,
+    name,
     archiveInfo.md5,
   );
 
