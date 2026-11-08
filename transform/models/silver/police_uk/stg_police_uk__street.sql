@@ -1,3 +1,5 @@
+{{ config(materialized='view') }}
+
 select
     md5(archive || '/' || month || '/' || file_row_number) as record_id,
     nullif("Crime ID", '') as crime_id,
