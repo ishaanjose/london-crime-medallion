@@ -1,5 +1,13 @@
 version: 2
 
+seeds:
+  - name: met_crime_category_map
+    columns:
+      - name: ho_major_category
+        data_tests:
+          - unique
+          - not_null
+
 models:
   - name: int_met__lsoa_crime_counts_deduped
     data_tests:
@@ -28,3 +36,12 @@ models:
       - name: source_release
         data_tests:
           - not_null
+  - name: met__lsoa_crime_counts
+    columns:
+      - name: crime_group
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('police_uk_crime_type_map')
+                field: crime_group
