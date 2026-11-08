@@ -4,3 +4,7 @@ london_crime:
     dev:
       type: duckdb
       path: ../data/warehouse.duckdb
+      threads: 4
+      settings:
+        memory_limit: "4GB"
+        threads: 4
