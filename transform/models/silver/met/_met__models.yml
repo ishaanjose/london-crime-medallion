@@ -1,0 +1,47 @@
+version: 2
+
+seeds:
+  - name: met_crime_category_map
+    columns:
+      - name: ho_major_category
+        data_tests:
+          - unique
+          - not_null
+
+models:
+  - name: int_met__lsoa_crime_counts_deduped
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - lsoa_code
+              - ho_minor_category
+              - month
+    columns:
+      - name: lsoa_code
+        data_tests:
+          - not_null
+      - name: borough_code
+        data_tests:
+          - not_null
+      - name: ho_major_category
+        data_tests:
+          - not_null
+      - name: month
+        data_tests:
+          - not_null
+      - name: crime_count
+        data_tests:
+          - not_null
+      - name: source_release
+        data_tests:
+          - not_null
+  - name: met__lsoa_crime_counts
+    columns:
+      - name: crime_group
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('police_uk_crime_type_map')
+                field: crime_group
