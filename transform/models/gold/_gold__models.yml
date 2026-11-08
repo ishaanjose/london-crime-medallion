@@ -1,0 +1,13 @@
+version: 2
+
+seeds:
+  - name: london_boroughs
+    columns:
+      - name: borough_code
+        data_tests:
+          - unique
+          - not_null
+      - name: borough_name
+        data_tests:
+          - unique
+          - not_null
