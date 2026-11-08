@@ -7,6 +7,19 @@ seeds:
         data_tests:
           - unique
           - not_null
+  - name: police_uk_outcome_type_map
+    columns:
+      - name: outcome_type
+        data_tests:
+          - unique
+          - not_null
+      - name: outcome_stage
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - police
+                  - court
 
 models:
   - name: int_police_uk__street_deduped
@@ -40,5 +53,39 @@ models:
   - name: police_uk__street_crimes
     columns:
       - name: crime_group
+        data_tests:
+          - not_null
+  - name: int_police_uk__outcomes_deduped
+    columns:
+      - name: record_id
+        data_tests:
+          - unique
+          - not_null
+      - name: crime_id
+        data_tests:
+          - not_null
+      - name: outcome_month
+        data_tests:
+          - not_null
+      - name: force
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - City of London Police
+                  - Metropolitan Police Service
+      - name: outcome_type
+        data_tests:
+          - not_null
+      - name: source_archive
+        data_tests:
+          - not_null
+  - name: police_uk__outcomes
+    columns:
+      - name: outcome_group
+        data_tests:
+          - not_null
+      - name: outcome_stage
         data_tests:
           - not_null
