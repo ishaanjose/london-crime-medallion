@@ -1,5 +1,6 @@
 import { ingestArchive } from "./ingestArchive.js";
 import { ingestMet } from "./ingestMet.js";
+import { ingestOnsGeography } from "./ingestOnsGeography.js";
 import {
   archiveUrl,
   BACKFILL_ARCHIVES,
@@ -11,3 +12,4 @@ for (const month of BACKFILL_ARCHIVES) {
 }
 await ingestArchive(LATEST_ARCHIVE_URL, "latest");
 await ingestMet();
+await ingestOnsGeography();
