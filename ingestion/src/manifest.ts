@@ -2,7 +2,11 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { isFileNotFound } from "./fsUtils.js";
-import { MET_MANIFEST_PATH, POLICE_UK_MANIFEST_PATH } from "./paths.js";
+import {
+  MET_MANIFEST_PATH,
+  ONS_MANIFEST_PATH,
+  POLICE_UK_MANIFEST_PATH,
+} from "./paths.js";
 import type { MetRelease } from "./sources/metDatastore.js";
 import type { ArchiveInfo } from "./sources/policeUk.js";
 
@@ -20,6 +24,12 @@ interface MetManifestEntry {
   historicalHash: string;
   recentSize: number;
   historicalSize: number;
+  ingestedAt: string;
+}
+
+interface OnsManifestEntry {
+  layerName: string;
+  dataLastEditDate: string;
   ingestedAt: string;
 }
 
@@ -107,4 +117,40 @@ export async function writeMetRelease(release: MetRelease): Promise<void> {
     ingestedAt: new Date().toISOString(),
   });
   await writeEntries(MET_MANIFEST_PATH, entries);
+}
+
+export function onsLayerKey(
+  layerName: string,
+  dataLastEditDate: Date,
+): string {
+  return `${layerName}+${dataLastEditDate.toISOString()}`;
+}
+
+export async function hasIngestedOnsLayer(key: string): Promise<boolean> {
+  const entries = await readEntries<OnsManifestEntry>(ONS_MANIFEST_PATH);
+  return entries.some(
+    (entry) => onsLayerKey(entry.layerName, new Date(entry.dataLastEditDate)) === key,
+  );
+}
+
+export async function writeOnsLayer(
+  layerName: string,
+  dataLastEditDate: Date,
+): Promise<void> {
+  const entries = await readEntries<OnsManifestEntry>(ONS_MANIFEST_PATH);
+  const key = onsLayerKey(layerName, dataLastEditDate);
+  if (
+    entries.some(
+      (entry) =>
+        onsLayerKey(entry.layerName, new Date(entry.dataLastEditDate)) === key,
+    )
+  ) {
+    return;
+  }
+  entries.push({
+    layerName,
+    dataLastEditDate: dataLastEditDate.toISOString(),
+    ingestedAt: new Date().toISOString(),
+  });
+  await writeEntries(ONS_MANIFEST_PATH, entries);
 }

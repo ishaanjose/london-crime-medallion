@@ -12,3 +12,7 @@ export const MET_MANIFEST_PATH = join(
   DATA_DIR,
   "bronze/met_datastore/_manifest.json",
 );
+export const ONS_MANIFEST_PATH = join(
+  DATA_DIR,
+  "bronze/ons_geography/_manifest.json",
+);
