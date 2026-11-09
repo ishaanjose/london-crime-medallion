@@ -1,10 +1,8 @@
 select
-    london_boroughs.borough_code,
-    london_boroughs.borough_name,
-    crimes.month,
-    crimes.crime_group,
-    count(*) as crime_count
-from {{ ref('police_uk__street_crimes') }} as crimes
-inner join {{ ref('london_boroughs') }} as london_boroughs
-    on {{ borough_from_lsoa_name('crimes.lsoa_name') }} = london_boroughs.borough_name
+    borough_code,
+    borough_name,
+    month,
+    crime_group,
+    sum(crime_count) as crime_count
+from {{ ref('fct_police_uk_crimes_lsoa_month') }}
 group by 1, 2, 3, 4
