@@ -1,0 +1,67 @@
+import { randomUUID } from "node:crypto";
+
+import { landBoundaries, landLookup } from "./landOnsGeography.js";
+import {
+  hasIngestedOnsLayer,
+  onsLayerKey,
+  writeOnsLayer,
+} from "./manifest.js";
+import {
+  fetchAllFeatures,
+  getLayerInfo,
+  LSOA11_LSOA21_LAD22_LOOKUP_LAYER,
+  LSOA21_BOUNDARIES_LAYER,
+} from "./sources/onsGeography.js";
+
+interface OnsLayerConfig {
+  layerName: string;
+  layerUrl: string;
+  outFields: string;
+  returnGeometry: boolean;
+  format: "geojson" | "json";
+  land: (
+    features: unknown[],
+    editDate: string,
+    batchId: string,
+  ) => Promise<void>;
+}
+
+const LAYERS: OnsLayerConfig[] = [
+  {
+    layerName: "lsoa21 boundaries",
+    layerUrl: LSOA21_BOUNDARIES_LAYER,
+    outFields: "LSOA21CD,LSOA21NM",
+    returnGeometry: true,
+    format: "geojson",
+    land: landBoundaries,
+  },
+  {
+    layerName: "lsoa lookup",
+    layerUrl: LSOA11_LSOA21_LAD22_LOOKUP_LAYER,
+    outFields: "*",
+    returnGeometry: false,
+    format: "json",
+    land: landLookup,
+  },
+];
+
+export async function ingestOnsGeography(): Promise<void> {
+  for (const layer of LAYERS) {
+    const layerInfo = await getLayerInfo(layer.layerUrl);
+    const key = onsLayerKey(layer.layerName, layerInfo.dataLastEditDate);
+    if (await hasIngestedOnsLayer(key)) {
+      console.log(`${layer.layerName}: up to date`);
+      continue;
+    }
+
+    const features = await fetchAllFeatures(layer.layerUrl, layerInfo, {
+      label: layer.layerName,
+      outFields: layer.outFields,
+      returnGeometry: layer.returnGeometry,
+      format: layer.format,
+    });
+    const editDate = layerInfo.dataLastEditDate.toISOString().slice(0, 10);
+    await layer.land(features, editDate, randomUUID());
+    await writeOnsLayer(layer.layerName, layerInfo.dataLastEditDate);
+  }
+}
