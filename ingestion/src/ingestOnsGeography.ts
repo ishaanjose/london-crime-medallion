@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { landBoundaries, landLookup } from "./landOnsGeography.js";
+import { landAttributeTable, landBoundaries } from "./landOnsGeography.js";
 import {
   hasIngestedOnsLayer,
   onsLayerKey,
@@ -11,7 +11,10 @@ import {
   getLayerInfo,
   LSOA11_LSOA21_LAD22_LOOKUP_LAYER,
   LSOA21_BOUNDARIES_LAYER,
+  findField,
+  ONSPD_LATEST_LAYER,
 } from "./sources/onsGeography.js";
+import type { LayerInfo } from "./sources/onsGeography.js";
 
 interface OnsLayerConfig {
   layerName: string;
@@ -19,6 +22,7 @@ interface OnsLayerConfig {
   outFields: string;
   returnGeometry: boolean;
   format: "geojson" | "json";
+  where?: (info: LayerInfo) => string;
   land: (
     features: unknown[],
     editDate: string,
@@ -41,7 +45,19 @@ const LAYERS: OnsLayerConfig[] = [
     outFields: "*",
     returnGeometry: false,
     format: "json",
-    land: landLookup,
+    land: (features, editDate, batchId) =>
+      landAttributeTable("lsoa_lookup", features, editDate, batchId),
+  },
+  {
+    layerName: "postcodes",
+    layerUrl: ONSPD_LATEST_LAYER,
+    outFields:
+      "PCDS,DOINTR,DOTERM,USRTYPIND,OA21CD,LSOA21CD,MSOA21CD,LSOA11CD,LAT,LONG",
+    returnGeometry: false,
+    format: "json",
+    where: (info) => `${findField(info, /^RGN\d{2}CD$/)} = 'E12000007'`,
+    land: (features, editDate, batchId) =>
+      landAttributeTable("postcodes", features, editDate, batchId),
   },
 ];
 
@@ -54,12 +70,18 @@ export async function ingestOnsGeography(): Promise<void> {
       continue;
     }
 
-    const features = await fetchAllFeatures(layer.layerUrl, layerInfo, {
+    const fetchOptions = {
       label: layer.layerName,
       outFields: layer.outFields,
       returnGeometry: layer.returnGeometry,
       format: layer.format,
-    });
+      ...(layer.where ? { where: layer.where(layerInfo) } : {}),
+    };
+    const features = await fetchAllFeatures(
+      layer.layerUrl,
+      layerInfo,
+      fetchOptions,
+    );
     const editDate = layerInfo.dataLastEditDate.toISOString().slice(0, 10);
     await layer.land(features, editDate, randomUUID());
     await writeOnsLayer(layer.layerName, layerInfo.dataLastEditDate);
