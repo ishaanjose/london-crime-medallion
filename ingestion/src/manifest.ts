@@ -10,6 +10,7 @@ import {
   POLICE_UK_MANIFEST_PATH,
   TFL_MANIFEST_PATH,
   GREENSPACE_MANIFEST_PATH,
+  NAPTAN_MANIFEST_PATH,
 } from "./paths.js";
 import type { MetRelease } from "./sources/metDatastore.js";
 import type { ArchiveInfo } from "./sources/policeUk.js";
@@ -66,6 +67,13 @@ interface GreenspaceManifestEntry {
   version: string;
   md5: string;
   size: number;
+  batchId: string;
+  ingestedAt: string;
+}
+
+interface NaptanManifestEntry {
+  md5: string;
+  rows: number;
   batchId: string;
   ingestedAt: string;
 }
@@ -316,4 +324,27 @@ export async function writeGreenspace(
     ingestedAt: new Date().toISOString(),
   });
   await writeEntries(GREENSPACE_MANIFEST_PATH, entries);
+}
+
+export async function hasIngestedNaptan(md5: string): Promise<boolean> {
+  const entries = await readEntries<NaptanManifestEntry>(NAPTAN_MANIFEST_PATH);
+  return entries.some((entry) => entry.md5 === md5);
+}
+
+export async function writeNaptan(
+  md5: string,
+  rows: number,
+  batchId: string,
+): Promise<void> {
+  const entries = await readEntries<NaptanManifestEntry>(NAPTAN_MANIFEST_PATH);
+  if (entries.some((entry) => entry.md5 === md5)) {
+    return;
+  }
+  entries.push({
+    md5,
+    rows,
+    batchId,
+    ingestedAt: new Date().toISOString(),
+  });
+  await writeEntries(NAPTAN_MANIFEST_PATH, entries);
 }
