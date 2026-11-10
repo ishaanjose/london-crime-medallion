@@ -108,3 +108,12 @@ models:
       - name: is_outcome_data_impaired
         data_tests:
           - not_null
+
+  - name: int_police_uk__place_year_crimes
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - year
+              - place_level
+              - place_id
