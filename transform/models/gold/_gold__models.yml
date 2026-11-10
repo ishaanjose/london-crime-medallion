@@ -499,3 +499,15 @@ models:
               arguments:
                 min_value: 0
                 max_value: 1
+
+  - name: rpt_source_freshness
+    description: >
+      Latest ingest per source and dataset. data_from and data_to are the months the crime data
+      covers; null for reference sources. Age since ingest is computed by the dashboard on load,
+      not here, because now() in a table freezes at build time.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - source
+              - dataset
