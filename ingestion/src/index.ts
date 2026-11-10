@@ -3,6 +3,7 @@ import { ingestMet } from "./ingestMet.js";
 import { ingestNomisPopulation } from "./ingestNomisPopulation.js";
 import { ingestImd } from "./ingestImd.js";
 import { ingestOnsGeography } from "./ingestOnsGeography.js";
+import { ingestTfl } from "./ingestTfl.js";
 import {
   archiveUrl,
   BACKFILL_ARCHIVES,
@@ -17,3 +18,4 @@ await ingestMet();
 await ingestOnsGeography();
 await ingestNomisPopulation();
 await ingestImd();
+await ingestTfl();
