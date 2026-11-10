@@ -33,6 +33,22 @@ seeds:
                   - degraded
                   - collapsed
                   - step
+  - name: known_source_changes
+    description: Changes to the sources themselves; an empty end_month means still in effect.
+    config:
+      column_types:
+        start_month: date
+        end_month: date
+    columns:
+      - name: source
+        data_tests:
+          - not_null
+      - name: change_type
+        data_tests:
+          - not_null
+      - name: handling
+        data_tests:
+          - not_null
   - name: london_boroughs
     columns:
       - name: borough_code
@@ -511,3 +527,22 @@ models:
             combination_of_columns:
               - source
               - dataset
+
+  - name: rpt_known_issues
+    description: >
+      Every known data break, duplicate publication, outcome gap and source change as one
+      timeline. start_month is null for issues with no start date (TfL station coverage); a null
+      end_month means still in effect.
+    columns:
+      - name: issue_type
+        data_tests:
+          - not_null
+      - name: source
+        data_tests:
+          - not_null
+      - name: description
+        data_tests:
+          - not_null
+      - name: handling
+        data_tests:
+          - not_null

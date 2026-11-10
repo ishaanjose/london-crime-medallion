@@ -1,0 +1,8 @@
+source,start_month,end_month,change_type,description,handling
+police_uk,2011-12-01,,map_points,police.uk replaced its anonymous map-point set,point-level concentration excludes 2011
+police_uk,2022-07-01,,map_points,police.uk replaced its anonymous map-point set,point-level concentration excludes 2022
+police_uk,2011-12-01,,coverage,Crime IDs only published from Dec 2011 and outcomes from Jan 2012,charge rates and outcome mix start in 2012
+police_uk,2019-05-01,,coverage,police.uk stopped publishing court outcomes after May 2019,outcomes use police-stage outcomes only
+met,2020-11-01,,coverage,Met datastore offers a rolling window of about 6 years (earliest month 2020-11 in the Nov 2026 release),bronze keeps every release so older months persist after they drop off the window
+ons,2026-11-01,,source_moved,ONS made the BGC LSOA 2021 boundary service private (Token Required),switched to BFE V10 (full resolution and extent including the Thames)
+tfl,,,coverage,TfL stop points exclude National Rail-only stations,stations combine TfL with NaPTAN rail (area 910) deduplicated by code and within 100 m
