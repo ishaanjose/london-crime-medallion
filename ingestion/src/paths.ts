@@ -20,3 +20,7 @@ export const NOMIS_MANIFEST_PATH = join(
   DATA_DIR,
   "bronze/nomis/_manifest.json",
 );
+export const IMD_MANIFEST_PATH = join(
+  DATA_DIR,
+  "bronze/mhclg_imd/_manifest.json",
+);

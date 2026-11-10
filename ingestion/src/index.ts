@@ -1,6 +1,7 @@
 import { ingestArchive } from "./ingestArchive.js";
 import { ingestMet } from "./ingestMet.js";
 import { ingestNomisPopulation } from "./ingestNomisPopulation.js";
+import { ingestImd } from "./ingestImd.js";
 import { ingestOnsGeography } from "./ingestOnsGeography.js";
 import {
   archiveUrl,
@@ -15,3 +16,4 @@ await ingestArchive(LATEST_ARCHIVE_URL, "latest");
 await ingestMet();
 await ingestOnsGeography();
 await ingestNomisPopulation();
+await ingestImd();
