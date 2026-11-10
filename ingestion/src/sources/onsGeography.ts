@@ -3,6 +3,9 @@ import { withRetry } from "../retry.js";
 export const LSOA21_BOUNDARIES_LAYER =
   "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/LSOA_2021_EW_BFE_V10_RUC/FeatureServer/3";
 
+export const LSOA21_POP_CENTROIDS_LAYER =
+  "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/LSOA_PopCentroids_EW_2021_V4/FeatureServer/0";
+
 export const LSOA11_LSOA21_LAD22_LOOKUP_LAYER =
   "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/LSOA11_LSOA21_LAD22_EW_LU_v5/FeatureServer/0";
 
