@@ -443,3 +443,59 @@ models:
               arguments:
                 to: ref('dim_map_point')
                 field: point_id
+
+  - name: rpt_crime_concentration
+    description: >
+      Lorenz curve of crime (anti-social behaviour excluded) across places, per full calendar year
+      and place level: the top pct_places percent of places hold pct_crime percent of crime.
+      point is police.uk anonymised map points, roughly street segments; it only includes points
+      with at least one crime that year, because police.uk never publishes empty points, so it
+      understates concentration. lsoa covers all 4,994 LSOAs, zero-crime ones included. The
+      point curve skips 2011 and 2022: police.uk replaced its anonymous map-point set from Dec
+      2011 and Jul 2022, so in those years one street counts as two places and point-level
+      concentration isn't comparable. Their lsoa rows are kept.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - year
+              - place_level
+              - pct_places
+    columns:
+      - name: place_level
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - point
+                  - lsoa
+      - name: pct_crime
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+  - name: rpt_crime_concentration_summary
+    description: >
+      One row per full year and place level. pct_places_for_half_of_crime is the smallest
+      percentage of places holding half of crime; gini is 0 when crime is spread evenly and 1 when
+      it is all in one place. Same point-level caveat as rpt_crime_concentration. No point rows
+      for 2011 and 2022: police.uk replaced its anonymous map-point set from Dec 2011 and Jul 2022,
+      so in those years one street counts as two places and point-level concentration isn't
+      comparable. Their lsoa rows are kept.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - year
+              - place_level
+    columns:
+      - name: gini
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
