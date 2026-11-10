@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: manifests
+    description: The _manifest.json each ingest writes, one table per bronze folder.
+    tables:
+      - name: police_uk
+        meta:
+          external_location: "read_json('../data/bronze/police_uk/_manifest.json')"
+      - name: met
+        meta:
+          external_location: "read_json('../data/bronze/met_datastore/_manifest.json')"
+      - name: ons
+        meta:
+          external_location: "read_json('../data/bronze/ons_geography/_manifest.json')"
+      - name: nomis
+        meta:
+          external_location: "read_json('../data/bronze/nomis/_manifest.json')"
+      - name: imd
+        meta:
+          external_location: "read_json('../data/bronze/mhclg_imd/_manifest.json')"
+      - name: tfl
+        meta:
+          external_location: "read_json('../data/bronze/tfl/_manifest.json')"
+      - name: greenspace
+        meta:
+          external_location: "read_json('../data/bronze/os_open_greenspace/_manifest.json')"
+      - name: naptan
+        meta:
+          external_location: "read_json('../data/bronze/naptan/_manifest.json')"
