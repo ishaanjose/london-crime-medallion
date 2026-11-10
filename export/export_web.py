@@ -1,5 +1,6 @@
 """Export gold tables to Parquet for the web dashboard, with a hashed index.json."""
 
+import argparse
 import hashlib
 import json
 import shutil
@@ -62,6 +63,130 @@ def export_tables(con: duckdb.DuckDBPyConnection) -> None:
         print(f"exported {name}")
 
 
+def load_json(path: Path) -> dict:
+    return json.loads(path.read_text())
+
+
+def write_json(name: str, data: dict) -> None:
+    (STAGING / name).write_text(json.dumps(data, separators=(",", ":")))
+
+
+def where_text(filter_: dict | None) -> str | None:
+    if not filter_:
+        return None
+    return "\n".join(f["where_sql_template"].strip() for f in filter_["where_filters"])
+
+
+def write_metrics() -> None:
+    semantic = load_json(TARGET / "semantic_manifest.json")
+    metrics = []
+    for m in semantic["metrics"]:
+        params = m["type_params"]
+        if m["type"] == "simple":
+            inputs = {"measure": params["measure"]["name"]}
+        elif m["type"] == "ratio":
+            inputs = {"input_metrics": [params["numerator"]["name"], params["denominator"]["name"]]}
+        else:
+            inputs = {"input_metrics": [i["name"] for i in params["metrics"]], "expr": params["expr"]}
+        metrics.append({
+            "name": m["name"],
+            "label": m["label"],
+            "description": m["description"],
+            "type": m["type"],
+            **inputs,
+            "filter": where_text(m["filter"]),
+        })
+    semantic_models = [
+        {
+            "name": sm["name"],
+            "description": sm["description"],
+            "dimensions": [{"name": d["name"], "type": d["type"]} for d in sm["dimensions"]],
+        }
+        for sm in semantic["semantic_models"]
+    ]
+    write_json("metrics.json", {"metrics": metrics, "semantic_models": semantic_models})
+
+
+def tested_node(test: dict) -> str:
+    # relationships tests depend on both models; attached_node is the one being tested
+    return test.get("attached_node") or test["depends_on"]["nodes"][0]
+
+
+def write_tests(manifest: dict, allow_partial: bool) -> None:
+    run_results = load_json(TARGET / "run_results.json")
+    args = run_results["args"]
+    # run_results.json only describes the last dbt command, so a partial build would
+    # publish "9 of 9 pass" for 9 tests out of hundreds
+    partial = bool(args.get("select")) or bool(args.get("exclude")) or args.get("which") not in ("build", "test")
+    if partial and not allow_partial:
+        raise SystemExit(
+            "run_results.json is from a partial build; run a full dbt build before exporting"
+        )
+    nodes = manifest["nodes"]
+    tests = []
+    for r in run_results["results"]:
+        if not r["unique_id"].startswith("test."):
+            continue
+        node = nodes[r["unique_id"]]
+        tests.append({
+            "name": node["name"],
+            "model": tested_node(node).split(".")[-1],
+            "status": r["status"],
+            "failures": r["failures"],
+            "execution_time": round(r["execution_time"], 3),
+        })
+    counts: dict[str, int] = {}
+    for t in tests:
+        counts[t["status"]] = counts.get(t["status"], 0) + 1
+    output = {
+        "generated_at": run_results["metadata"]["generated_at"],
+        "dbt_version": run_results["metadata"]["dbt_version"],
+        "counts": counts,
+        "tests": tests,
+    }
+    if partial:
+        output["partial"] = True
+    write_json("tests.json", output)
+
+
+def write_lineage(manifest: dict) -> None:
+    test_counts: dict[str, int] = {}
+    for node in manifest["nodes"].values():
+        if node["resource_type"] == "test":
+            target = tested_node(node)
+            test_counts[target] = test_counts.get(target, 0) + 1
+
+    graph_nodes = [n for n in manifest["nodes"].values() if n["resource_type"] in ("model", "seed")]
+    graph_nodes += list(manifest["sources"].values())
+    layers = {"source": "bronze", "seed": "seed"}
+    nodes = [
+        {
+            "id": n["unique_id"],
+            "name": n["name"],
+            "resource_type": n["resource_type"],
+            "layer": layers.get(n["resource_type"]) or n["fqn"][1],
+            "materialized": n.get("config", {}).get("materialized"),
+            "test_count": test_counts.get(n["unique_id"], 0),
+        }
+        for n in graph_nodes
+    ]
+    ids = {n["id"] for n in nodes}
+    edges = [
+        [parent, n["unique_id"]]
+        for n in graph_nodes
+        for parent in n.get("depends_on", {}).get("nodes", [])
+        if parent in ids
+    ]
+    write_json("lineage.json", {"nodes": nodes, "edges": edges})
+
+
+METADATA_ROWS = {
+    "metrics.json": lambda d: len(d["metrics"]),
+    "tests.json": lambda d: len(d["tests"]),
+    "lineage.json": lambda d: len(d["nodes"]),
+}
+
+
 def write_geojson(
     con: duckdb.DuckDBPyConnection, table: str, id_column: str, extra_columns: list[str], path: Path
 ) -> None:
@@ -113,6 +238,9 @@ def build_index(con: duckdb.DuckDBPyConnection) -> dict:
     for path in sorted(STAGING.glob("*.geojson")):
         features = json.loads(path.read_text())["features"]
         files.append(file_entry(path, len(features)))
+    for name, count_rows in METADATA_ROWS.items():
+        path = STAGING / name
+        files.append(file_entry(path, count_rows(load_json(path))))
     git_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
     ).stdout.strip()
@@ -139,9 +267,23 @@ def swap_into_place() -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--allow-partial-tests",
+        action="store_true",
+        help="export tests.json even if the last dbt command was a partial build (local experiments only)",
+    )
+    args = parser.parse_args()
+
     if STAGING.exists():
         shutil.rmtree(STAGING)
     STAGING.mkdir(parents=True)
+
+    # metadata first, so a partial build fails before the slow table export
+    manifest = load_json(TARGET / "manifest.json")
+    write_tests(manifest, args.allow_partial_tests)
+    write_lineage(manifest)
+    write_metrics()
 
     con = duckdb.connect(str(WAREHOUSE), read_only=True)
     try:
