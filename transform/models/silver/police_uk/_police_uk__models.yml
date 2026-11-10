@@ -79,6 +79,11 @@ models:
           - unique
           - not_null
   - name: int_police_uk__outcomes_deduped
+    description: >
+      One row per outcome event (force, crime_id, outcome_month, outcome_type), taken from the
+      newest archive that contains it. Each archive only carries outcomes for crimes inside its
+      own 36-month window, so a month near an archive's start is thin; deduping events across
+      all archives fills those months from older archives that cover them more fully.
     columns:
       - name: record_id
         data_tests:

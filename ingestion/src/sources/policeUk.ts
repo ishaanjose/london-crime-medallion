@@ -8,7 +8,13 @@ export function archiveUrl(month: string): string {
 }
 
 // These snapshots, together with latest, cover December 2010 to the present.
-export const BACKFILL_ARCHIVES = ["2017-04", "2017-09", "2020-09", "2023-09"];
+// Yearly snapshots so every outcome month sits at least 24 months into some archive.
+// Archives only include outcomes for crimes inside their own 36-month window,
+// so a month near the start of an archive is missing outcomes for older crimes.
+export const BACKFILL_ARCHIVES = [
+  "2017-04", "2017-09", "2018-09", "2019-09", "2020-09",
+  "2021-09", "2022-09", "2023-09", "2024-09", "2025-09",
+];
 
 export interface ArchiveInfo {
   md5: string;
