@@ -16,3 +16,7 @@ export const ONS_MANIFEST_PATH = join(
   DATA_DIR,
   "bronze/ons_geography/_manifest.json",
 );
+export const NOMIS_MANIFEST_PATH = join(
+  DATA_DIR,
+  "bronze/nomis/_manifest.json",
+);
