@@ -9,6 +9,7 @@ import {
   ONS_MANIFEST_PATH,
   POLICE_UK_MANIFEST_PATH,
   TFL_MANIFEST_PATH,
+  GREENSPACE_MANIFEST_PATH,
 } from "./paths.js";
 import type { MetRelease } from "./sources/metDatastore.js";
 import type { ArchiveInfo } from "./sources/policeUk.js";
@@ -57,6 +58,14 @@ interface TflManifestEntry {
   mode: string;
   md5: string;
   count: number;
+  batchId: string;
+  ingestedAt: string;
+}
+
+interface GreenspaceManifestEntry {
+  version: string;
+  md5: string;
+  size: number;
   batchId: string;
   ingestedAt: string;
 }
@@ -273,4 +282,38 @@ export async function writeTflSnapshot(
     ingestedAt: new Date().toISOString(),
   });
   await writeEntries(TFL_MANIFEST_PATH, entries);
+}
+
+export async function hasIngestedGreenspace(
+  version: string,
+  md5: string,
+): Promise<boolean> {
+  const entries = await readEntries<GreenspaceManifestEntry>(
+    GREENSPACE_MANIFEST_PATH,
+  );
+  return entries.some(
+    (entry) => entry.version === version && entry.md5 === md5,
+  );
+}
+
+export async function writeGreenspace(
+  version: string,
+  md5: string,
+  size: number,
+  batchId: string,
+): Promise<void> {
+  const entries = await readEntries<GreenspaceManifestEntry>(
+    GREENSPACE_MANIFEST_PATH,
+  );
+  if (entries.some((entry) => entry.version === version && entry.md5 === md5)) {
+    return;
+  }
+  entries.push({
+    version,
+    md5,
+    size,
+    batchId,
+    ingestedAt: new Date().toISOString(),
+  });
+  await writeEntries(GREENSPACE_MANIFEST_PATH, entries);
 }
