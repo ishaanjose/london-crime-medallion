@@ -1,7 +1,7 @@
 import { withRetry } from "../retry.js";
 
 export const LSOA21_BOUNDARIES_LAYER =
-  "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Lower_layer_Super_Output_Areas_December_2021_Boundaries_EW_BGC_V5/FeatureServer/0";
+  "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/LSOA_2021_EW_BFE_V10_RUC/FeatureServer/3";
 
 export const LSOA11_LSOA21_LAD22_LOOKUP_LAYER =
   "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/LSOA11_LSOA21_LAD22_EW_LU_v5/FeatureServer/0";
@@ -32,6 +32,7 @@ export interface FetchFeaturesOptions {
   returnGeometry: boolean;
   format: "geojson" | "json";
   where?: string;
+  extraParams?: Record<string, string>;
 }
 
 export async function getLayerInfo(layerUrl: string): Promise<LayerInfo> {
@@ -136,6 +137,7 @@ export async function fetchAllFeatures(
       orderByFields: `${layerInfo.objectIdField} ASC`,
       resultRecordCount: String(layerInfo.maxRecordCount),
       f: options.format,
+      ...options.extraParams,
     });
     const data = await withRetry(async () => {
       const response = await fetch(`${layerUrl}/query?${params}`);
@@ -200,6 +202,7 @@ export async function fetchAllFeatures(
     where: options.where ?? "1=1",
     returnCountOnly: "true",
     f: "json",
+    ...options.extraParams,
   });
   const countData = await withRetry(async () => {
     const response = await fetch(`${layerUrl}/query?${countParams}`);
@@ -242,14 +245,18 @@ function getObjectId(
   }
   if (format === "geojson" && "id" in feature) {
     const id = (feature as { id?: unknown }).id;
-    return typeof id === "number" && Number.isFinite(id)
-      ? id
-      : undefined;
+    if (typeof id === "number" && Number.isFinite(id)) {
+      return id;
+    }
   }
   const container =
-    "attributes" in feature
-      ? feature.attributes
-      : undefined;
+    format === "geojson"
+      ? "properties" in feature
+        ? feature.properties
+        : undefined
+      : "attributes" in feature
+        ? feature.attributes
+        : undefined;
   if (typeof container !== "object" || container === null || !(objectIdField in container)) {
     return undefined;
   }
