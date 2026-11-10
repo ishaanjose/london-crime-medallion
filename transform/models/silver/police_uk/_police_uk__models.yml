@@ -20,6 +20,10 @@ seeds:
                 values:
                   - police
                   - court
+      - name: outcome_priority
+        description: Lower wins when a crime gets two different outcomes in the same month; court groups are 9 and not used for the final police outcome.
+        data_tests:
+          - not_null
 
 models:
   - name: int_police_uk__street_deduped
