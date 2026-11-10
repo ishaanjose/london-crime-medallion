@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: mhclg_imd
+    tables:
+      - name: imd_2019
+        meta:
+          external_location: "read_parquet('../data/bronze/mhclg_imd/file7/release=iod2019/*.parquet')"
+      - name: imd_2025
+        meta:
+          external_location: "read_parquet('../data/bronze/mhclg_imd/file7/release=iod2025/*.parquet')"
