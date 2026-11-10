@@ -5,6 +5,8 @@ london_crime:
       type: duckdb
       path: ../data/warehouse.duckdb
       threads: 4
+      extensions:
+        - spatial
       settings:
         memory_limit: "4GB"
         threads: 4
