@@ -23,6 +23,16 @@ seeds:
             combination_of_columns:
               - force
               - start_month
+    columns:
+      - name: severity
+        description: degraded and collapsed make charge rates unreliable; step only silences the outcome collapse test.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - degraded
+                  - collapsed
+                  - step
   - name: london_boroughs
     columns:
       - name: borough_code
