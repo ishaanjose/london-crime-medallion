@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: naptan
+    tables:
+      - name: rail_stations
+        meta:
+          external_location: "read_parquet('../data/bronze/naptan/rail_stations/*/*.parquet', hive_partitioning = true)"
