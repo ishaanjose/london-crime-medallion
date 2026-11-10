@@ -453,6 +453,44 @@ models:
                 to: ref('dim_lsoa')
                 field: lsoa21_code
 
+  - name: dim_postcode
+    columns:
+      - name: postcode_key
+        data_tests:
+          - unique
+          - not_null
+      - name: lsoa21_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_lsoa')
+                field: lsoa21_code
+
+  - name: geo_lsoa
+    data_tests:
+      - dbt_utils.equal_rowcount:
+          arguments:
+            compare_model: ref('dim_lsoa')
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "ST_IsValid(geometry)"
+    columns:
+      - name: lsoa21_code
+        data_tests:
+          - unique
+          - not_null
+
+  - name: geo_borough
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "ST_IsValid(geometry)"
+    columns:
+      - name: borough_code
+        data_tests:
+          - unique
+          - not_null
+
   - name: fct_police_uk_point_month
     data_tests:
       - dbt_utils.unique_combination_of_columns:
