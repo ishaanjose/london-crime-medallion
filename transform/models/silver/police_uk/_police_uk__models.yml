@@ -20,6 +20,10 @@ seeds:
                 values:
                   - police
                   - court
+      - name: outcome_priority
+        description: Lower wins when a crime gets two different outcomes in the same month; court groups are 9 and not used for the final police outcome.
+        data_tests:
+          - not_null
 
 models:
   - name: int_police_uk__street_deduped
@@ -75,6 +79,11 @@ models:
           - unique
           - not_null
   - name: int_police_uk__outcomes_deduped
+    description: >
+      One row per outcome event (force, crime_id, outcome_month, outcome_type), taken from the
+      newest archive that contains it. Each archive only carries outcomes for crimes inside its
+      own 36-month window, so a month near an archive's start is thin; deduping events across
+      all archives fills those months from older archives that cover them more fully.
     columns:
       - name: record_id
         data_tests:

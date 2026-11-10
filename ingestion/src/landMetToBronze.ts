@@ -30,6 +30,7 @@ export async function landMetRelease(
             ${quoteSql(file.csvPath)},
             all_varchar = true,
             header = true,
+            delim = ',', quote = '"', escape = '"',
             filename = true
           )
         )

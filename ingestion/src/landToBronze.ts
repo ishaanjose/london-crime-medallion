@@ -36,6 +36,7 @@ export async function landToBronze(
           all_varchar = true,
           union_by_name = true,
           header = true,
+          delim = ',', quote = '"', escape = '"',
           filename = true
         )
       )

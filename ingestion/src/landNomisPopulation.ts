@@ -35,6 +35,7 @@ export async function landPopulation(
         FROM read_csv(
           [${quotedPagePaths}],
           header = true,
+          delim = ',', quote = '"', escape = '"',
           all_varchar = true,
           filename = true
         )

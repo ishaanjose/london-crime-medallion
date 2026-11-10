@@ -16,6 +16,23 @@ seeds:
               - month
               - force
               - crime_type
+  - name: known_outcome_gaps
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - force
+              - start_month
+    columns:
+      - name: severity
+        description: degraded and collapsed make charge rates unreliable; step only silences the outcome collapse test.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - degraded
+                  - collapsed
+                  - step
   - name: london_boroughs
     columns:
       - name: borough_code
@@ -316,3 +333,75 @@ models:
         data_tests:
           - unique
           - not_null
+
+  - name: fct_police_uk_charge_rates
+    description: >
+      Charged within 12 months of the crime, by borough, crime month and crime group. Show
+      charge_rate_12m only where is_mature; grey it out with the known_outcome_gaps reason where
+      is_outcome_data_impaired.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - borough_code
+              - crime_month
+              - crime_group
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "charged_within_12m <= charged_ever and charged_ever <= crimes"
+    columns:
+      - name: borough_code
+        data_tests:
+          - not_null
+      - name: borough_name
+        data_tests:
+          - not_null
+      - name: crime_month
+        data_tests:
+          - not_null
+      - name: crime_group
+        data_tests:
+          - not_null
+      - name: crimes
+        data_tests:
+          - not_null
+      - name: charged_within_12m
+        data_tests:
+          - not_null
+      - name: charged_ever
+        data_tests:
+          - not_null
+      - name: is_outcome_data_impaired
+        data_tests:
+          - not_null
+      - name: is_mature
+        data_tests:
+          - not_null
+      - name: charge_rate_12m
+        description: Null until the crime month has had a full 12 months of outcome data.
+
+  - name: fct_police_uk_outcome_mix
+    description: >
+      Crimes by final police-stage outcome, by borough, crime month and crime group. Same
+      is_mature and is_outcome_data_impaired rules as fct_police_uk_charge_rates.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - borough_code
+              - crime_month
+              - crime_group
+              - final_outcome_group
+    columns:
+      - name: final_outcome_group
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - Charged
+                  - Out-of-court resolution
+                  - Unable to prosecute
+                  - Not in public interest
+                  - Passed to another organisation
+                  - No suspect identified
+                  - No outcome recorded
