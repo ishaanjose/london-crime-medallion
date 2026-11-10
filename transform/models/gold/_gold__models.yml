@@ -16,6 +16,13 @@ seeds:
               - month
               - force
               - crime_type
+  - name: known_outcome_gaps
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - force
+              - start_month
   - name: london_boroughs
     columns:
       - name: borough_code
