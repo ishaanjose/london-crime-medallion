@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: meta__ingestions
+    description: One row per manifest entry across all eight bronze sources.
+    columns:
+      - name: source
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - police_uk
+                  - met
+                  - ons
+                  - nomis
+                  - imd
+                  - tfl
+                  - greenspace
+                  - naptan
+      - name: ingested_at
+        data_tests:
+          - not_null
