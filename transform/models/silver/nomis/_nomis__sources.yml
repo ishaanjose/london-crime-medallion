@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: nomis
+    tables:
+      - name: lsoa21_population
+        meta:
+          external_location: "read_parquet('../data/bronze/nomis/lsoa21_population/*/*.parquet', hive_partitioning = true)"
