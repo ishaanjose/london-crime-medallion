@@ -379,3 +379,29 @@ models:
           - not_null
       - name: charge_rate_12m
         description: Null until the crime month has had a full 12 months of outcome data.
+
+  - name: fct_police_uk_outcome_mix
+    description: >
+      Crimes by final police-stage outcome, by borough, crime month and crime group. Same
+      is_mature and is_outcome_data_impaired rules as fct_police_uk_charge_rates.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - borough_code
+              - crime_month
+              - crime_group
+              - final_outcome_group
+    columns:
+      - name: final_outcome_group
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - Charged
+                  - Out-of-court resolution
+                  - Unable to prosecute
+                  - Not in public interest
+                  - Passed to another organisation
+                  - No suspect identified
+                  - No outcome recorded
