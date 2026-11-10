@@ -55,6 +55,25 @@ models:
       - name: crime_group
         data_tests:
           - not_null
+  - name: police_uk__street_crimes_lsoa21
+    columns:
+      - name: record_id
+        data_tests:
+          - unique
+          - not_null
+      - name: lsoa21_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - police_uk
+                  - spatial
+  - name: int_police_uk__street_dedup_source
+    columns:
+      - name: record_id
+        data_tests:
+          - unique
+          - not_null
   - name: int_police_uk__outcomes_deduped
     columns:
       - name: record_id
