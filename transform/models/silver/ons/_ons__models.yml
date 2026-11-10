@@ -17,3 +17,21 @@ models:
       - name: geometry
         data_tests:
           - not_null
+  - name: ons__london_postcodes
+    columns:
+      - name: postcode_key
+        data_tests:
+          - unique
+          - not_null
+      - name: lsoa21_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('ons__london_lsoa21')
+                field: lsoa21_code
+      - name: latitude
+        data_tests:
+          - not_null
+      - name: longitude
+        data_tests:
+          - not_null
