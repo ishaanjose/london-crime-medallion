@@ -1,6 +1,20 @@
 version: 2
 
 seeds:
+  - name: known_data_breaks
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - month
+              - crime_group
+  - name: duplicated_source_months
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - month
+              - crime_type
   - name: london_boroughs
     columns:
       - name: borough_code
