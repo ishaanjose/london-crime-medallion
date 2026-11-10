@@ -17,6 +17,10 @@ OUT = REPO / "data/export"
 STAGING = REPO / "data/export.tmp"
 OLD = REPO / "data/export.old"
 
+# the dashboard loads these over the network; a gold change that bloats a file should fail the build, not the page
+MAX_TOTAL_BYTES = 150 * 1024 * 1024
+MAX_FILE_BYTES = 8 * 1024 * 1024
+
 EXPORTS = [
     {"name": "dim_lsoa", "table": "main_gold.dim_lsoa", "partition": None},
     {"name": "dim_postcode", "table": "main_gold.dim_postcode", "partition": None},
@@ -230,11 +234,35 @@ def sha256_prefix(path: Path) -> str:
     return digest.hexdigest()[:16]
 
 
+def parquet_columns(con: duckdb.DuckDBPyConnection, path: Path) -> list[dict]:
+    # hive_partitioning off so a partition file reports the columns it actually holds;
+    # the partition key is recorded separately as partition_by
+    described = con.execute(
+        "describe select * from read_parquet(?, hive_partitioning = false)", [str(path)]
+    ).fetchall()
+    return [{"name": row[0], "type": row[1]} for row in described]
+
+
 def build_index(con: duckdb.DuckDBPyConnection) -> dict:
     files = []
-    for path in sorted(STAGING.rglob("*.parquet")):
+    for path in sorted(STAGING.glob("*.parquet")):
         rows = con.execute("select count(*) from read_parquet(?)", [str(path)]).fetchone()[0]
-        files.append(file_entry(path, rows))
+        files.append({**file_entry(path, rows), "columns": parquet_columns(con, path)})
+
+    # partitioned tables share one schema, so record it once per table, not per file
+    partitioned = {}
+    for spec in EXPORTS:
+        if spec["partition"] is None:
+            continue
+        parts = sorted((STAGING / spec["name"]).rglob("*.parquet"))
+        for path in parts:
+            rows = con.execute("select count(*) from read_parquet(?)", [str(path)]).fetchone()[0]
+            files.append(file_entry(path, rows))
+        partitioned[spec["name"]] = {
+            "partition_by": PARTITION_COLUMNS[spec["partition"]][1],
+            "columns": parquet_columns(con, parts[0]),
+        }
+
     for path in sorted(STAGING.glob("*.geojson")):
         features = json.loads(path.read_text())["features"]
         files.append(file_entry(path, len(features)))
@@ -252,8 +280,23 @@ def build_index(con: duckdb.DuckDBPyConnection) -> dict:
         "built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git_commit": git_commit,
         "git_dirty": dirty,
+        "partitioned_tables": partitioned,
         "files": files,
     }
+
+
+def check_size_budget(index: dict) -> None:
+    files = index["files"]
+    total = sum(f["bytes"] for f in files)
+    problems = [
+        f"{f['path']} is {f['bytes'] / 1e6:.1f} MB (limit {MAX_FILE_BYTES / 1e6:.1f} MB)"
+        for f in files
+        if f["bytes"] > MAX_FILE_BYTES
+    ]
+    if total > MAX_TOTAL_BYTES:
+        problems.append(f"export is {total / 1e6:.1f} MB in total (limit {MAX_TOTAL_BYTES / 1e6:.1f} MB)")
+    if problems:
+        raise SystemExit("export over size budget; data/export left unchanged:\n  " + "\n  ".join(problems))
 
 
 def swap_into_place() -> None:
@@ -294,6 +337,7 @@ def main() -> None:
     finally:
         con.close()
 
+    check_size_budget(index)
     (STAGING / "index.json").write_text(json.dumps(index, indent=2) + "\n")
     swap_into_place()
     print(f"wrote {len(index['files'])} files to {OUT}")
