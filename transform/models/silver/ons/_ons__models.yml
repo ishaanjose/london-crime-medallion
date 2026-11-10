@@ -17,6 +17,9 @@ models:
       - name: geometry
         data_tests:
           - not_null
+      - name: pop_centroid
+        data_tests:
+          - not_null
   - name: ons__london_postcodes
     columns:
       - name: postcode_key
