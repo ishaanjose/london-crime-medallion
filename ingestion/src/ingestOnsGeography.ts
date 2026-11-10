@@ -23,6 +23,7 @@ interface OnsLayerConfig {
   returnGeometry: boolean;
   format: "geojson" | "json";
   where?: (info: LayerInfo) => string;
+  extraParams?: Record<string, string>;
   land: (
     features: unknown[],
     editDate: string,
@@ -37,6 +38,12 @@ const LAYERS: OnsLayerConfig[] = [
     outFields: "LSOA21CD,LSOA21NM",
     returnGeometry: true,
     format: "geojson",
+    extraParams: {
+      geometry: "503000,155000,562000,202000",
+      geometryType: "esriGeometryEnvelope",
+      inSR: "27700",
+      spatialRel: "esriSpatialRelIntersects",
+    },
     land: landBoundaries,
   },
   {
@@ -76,6 +83,7 @@ export async function ingestOnsGeography(): Promise<void> {
       returnGeometry: layer.returnGeometry,
       format: layer.format,
       ...(layer.where ? { where: layer.where(layerInfo) } : {}),
+      ...(layer.extraParams ? { extraParams: layer.extraParams } : {}),
     };
     const features = await fetchAllFeatures(
       layer.layerUrl,
