@@ -1,0 +1,181 @@
+semantic_models:
+  - name: lsoas
+    description: One row per London LSOA with static context (borough, deprivation, station and park access).
+    model: ref('dim_lsoa')
+    entities:
+      - name: lsoa
+        type: primary
+        expr: lsoa21_code
+    dimensions:
+      - name: borough_name
+        type: categorical
+      - name: imd_decile_2025
+        type: categorical
+      - name: income_decile_2025
+        type: categorical
+      - name: employment_decile_2025
+        type: categorical
+      - name: nearest_station_network
+        type: categorical
+      - name: nearest_station_band
+        type: categorical
+        expr: >
+          case when nearest_station_m < 500 then '0-499 m'
+               when nearest_station_m < 1000 then '500-999 m'
+               when nearest_station_m < 2000 then '1-2 km'
+               else '2 km+' end
+
+  - name: lsoa_months
+    description: Every London LSOA x month, zero-filled, with crimes, ASB and resident population.
+    model: ref('fct_police_uk_lsoa_month')
+    defaults:
+      agg_time_dimension: month_start
+    entities:
+      - name: lsoa_month
+        type: primary
+        expr: "lsoa21_code || '|' || cast(month as varchar)"
+      - name: lsoa
+        type: foreign
+        expr: lsoa21_code
+    dimensions:
+      - name: month_start
+        type: time
+        expr: month
+        type_params:
+          time_granularity: month
+      - name: is_low_population
+        type: categorical
+      - name: population_is_estimated_year
+        type: categorical
+    measures:
+      - name: crime_count
+        agg: sum
+      - name: asb_count
+        agg: sum
+      - name: population
+        agg: sum
+        non_additive_dimension:
+          name: month_start
+          window_choice: max
+      - name: months_covered
+        agg: count_distinct
+        expr: month
+
+  - name: charge_cohorts
+    description: >
+      Crimes with a crime ID by borough, crime month and crime group, with how many were charged.
+      A cohort is mature once it has had 12 months of outcome follow-up; impaired where that follow-up
+      overlaps a known outcome-recording gap.
+    model: ref('fct_police_uk_charge_rates')
+    defaults:
+      agg_time_dimension: crime_month_start
+    entities:
+      - name: charge_cohort
+        type: primary
+        expr: "borough_code || '|' || cast(crime_month as varchar) || '|' || crime_group || '|' || force"
+    dimensions:
+      - name: crime_month_start
+        type: time
+        expr: crime_month
+        type_params:
+          time_granularity: month
+      - name: borough_name
+        type: categorical
+      - name: crime_group
+        type: categorical
+      - name: force
+        type: categorical
+      - name: is_mature
+        type: categorical
+      - name: is_outcome_data_impaired
+        type: categorical
+    measures:
+      - name: crimes_with_id
+        agg: sum
+        expr: crimes
+      - name: charged_within_12m
+        agg: sum
+      - name: charged_ever
+        agg: sum
+
+metrics:
+  - name: crimes
+    label: Crimes
+    description: Recorded street-level crimes from police.uk, excluding anti-social behaviour.
+    type: simple
+    type_params:
+      measure: crime_count
+  - name: asb_incidents
+    label: Anti-social behaviour incidents
+    description: Recorded anti-social behaviour; not a crime, so kept separate from crimes.
+    type: simple
+    type_params:
+      measure: asb_count
+  - name: residents
+    label: Residents
+    description: Mid-year resident population (ONS via Nomis). At a time grain coarser than a month, the population of the last month in each period.
+    type: simple
+    type_params:
+      measure: population
+  - name: months_covered
+    label: Months covered
+    description: Number of months with data in the period; 12 means a complete year. Only compare annual rates where months_covered = 12.
+    type: simple
+    type_params:
+      measure: months_covered
+  - name: crimes_per_1000
+    label: Crimes per 1,000 residents
+    description: >
+      Crimes per 1,000 residents over the query period (per month at month grain, per year at year grain).
+      Per-resident rates overstate risk where few people live but many visit (City of London, Westminster, Westfield Stratford).
+    type: derived
+    type_params:
+      expr: crimes * 1000.0 / residents
+      metrics:
+        - name: crimes
+        - name: residents
+  - name: crimes_with_id
+    label: Crimes with a crime ID
+    description: Crimes that can be linked to outcomes; anti-social behaviour has no crime ID and is excluded.
+    type: simple
+    type_params:
+      measure: crimes_with_id
+  - name: charged_within_12m
+    label: Charged within 12 months
+    type: simple
+    type_params:
+      measure: charged_within_12m
+  - name: charge_rate_12m
+    label: Charge rate (within 12 months)
+    description: >
+      Share of crimes charged within 12 months of the crime. Only counts cohorts that are mature
+      and not affected by a known outcome-recording gap (Met crime months from about Jan 2011 to Mar 2012
+      and Oct 2016 to Apr 2020). Only show the rate where charge_rate_coverage is at least 0.95; below that
+      it describes a subset. Police-stage outcomes only (court outcomes stop May 2019).
+    type: ratio
+    type_params:
+      numerator: charged_within_12m
+      denominator: crimes_with_id
+    filter: |
+      {{ Dimension('charge_cohort__is_mature') }} = true
+      and {{ Dimension('charge_cohort__is_outcome_data_impaired') }} = false
+  - name: crimes_with_id_counted
+    label: Crimes counted in the charge rate
+    type: simple
+    type_params:
+      measure:
+        name: crimes_with_id
+        fill_nulls_with: 0
+    filter: |
+      {{ Dimension('charge_cohort__is_mature') }} = true
+      and {{ Dimension('charge_cohort__is_outcome_data_impaired') }} = false
+  - name: charge_rate_coverage
+    label: Charge rate coverage
+    description: >
+      Share of crimes with an ID that charge_rate_12m is based on, after the maturity and outcome-gap filters.
+      Only show charge_rate_12m where coverage is at least 0.95; below that the rate describes a subset
+      (in 2017 to 2019 London-wide, only City of London survives the filter).
+    type: ratio
+    type_params:
+      numerator: crimes_with_id_counted
+      denominator: crimes_with_id

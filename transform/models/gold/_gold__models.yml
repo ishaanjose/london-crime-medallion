@@ -352,7 +352,7 @@ models:
 
   - name: fct_police_uk_charge_rates
     description: >
-      Charged within 12 months of the crime, by borough, crime month and crime group. Show
+      Charged within 12 months of the crime, by borough, crime month, crime group and force. Show
       charge_rate_12m only where is_mature; grey it out with the known_outcome_gaps reason where
       is_outcome_data_impaired.
     data_tests:
@@ -362,6 +362,7 @@ models:
               - borough_code
               - crime_month
               - crime_group
+              - force
       - dbt_utils.expression_is_true:
           arguments:
             expression: "charged_within_12m <= charged_ever and charged_ever <= crimes"
@@ -376,6 +377,10 @@ models:
         data_tests:
           - not_null
       - name: crime_group
+        data_tests:
+          - not_null
+      - name: force
+        description: Police force that recorded the crime; City of London Police and the Met both record crimes inside the City.
         data_tests:
           - not_null
       - name: crimes
@@ -398,7 +403,7 @@ models:
 
   - name: fct_police_uk_outcome_mix
     description: >
-      Crimes by final police-stage outcome, by borough, crime month and crime group. Same
+      Crimes by final police-stage outcome, by borough, crime month, crime group and force. Same
       is_mature and is_outcome_data_impaired rules as fct_police_uk_charge_rates.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
@@ -407,8 +412,12 @@ models:
               - borough_code
               - crime_month
               - crime_group
+              - force
               - final_outcome_group
     columns:
+      - name: force
+        data_tests:
+          - not_null
       - name: final_outcome_group
         data_tests:
           - accepted_values:
@@ -545,4 +554,14 @@ models:
           - not_null
       - name: handling
         data_tests:
+          - not_null
+  - name: metricflow_time_spine
+    description: Daily calendar for MetricFlow time-based metrics.
+    time_spine:
+      standard_granularity_column: date_day
+    columns:
+      - name: date_day
+        granularity: day
+        data_tests:
+          - unique
           - not_null
