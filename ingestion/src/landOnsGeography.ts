@@ -33,18 +33,20 @@ export async function landBoundaries(
   await rename(tempPath, finalPath);
 }
 
-export async function landLookup(
+export async function landAttributeTable(
+  dataset: string,
   features: unknown[],
   editDate: string,
   batchId: string,
 ): Promise<void> {
   const dir = join(
     DATA_DIR,
-    "bronze/ons_geography/lsoa_lookup",
+    "bronze/ons_geography",
+    dataset,
     `edit=${editDate}`,
   );
-  const jsonPath = join(DOWNLOADS_DIR, `lsoa_lookup-${randomUUID()}.json`);
-  const parquetPath = join(dir, "lsoa_lookup.parquet");
+  const jsonPath = join(DOWNLOADS_DIR, `${dataset}-${randomUUID()}.json`);
+  const parquetPath = join(dir, `${dataset}.parquet`);
   const tempParquetPath = `${parquetPath}.tmp`;
 
   await rm(dir, { recursive: true, force: true });
@@ -56,11 +58,11 @@ export async function landLookup(
       feature === null ||
       !("attributes" in feature)
     ) {
-      throw new Error("ONS lookup feature is missing attributes");
+      throw new Error(`ONS ${dataset} feature is missing attributes`);
     }
     const attributes = (feature as { attributes?: unknown }).attributes;
     if (typeof attributes !== "object" || attributes === null) {
-      throw new Error("ONS lookup feature has invalid attributes");
+      throw new Error(`ONS ${dataset} feature has invalid attributes`);
     }
     return attributes;
   });
