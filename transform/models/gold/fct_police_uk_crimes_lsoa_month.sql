@@ -5,6 +5,6 @@ select
     month,
     crime_group,
     count(*) as crime_count
-from {{ ref('police_uk__street_crimes_lsoa21') }}
+from {{ ref('int_police_uk__street_dedup_source') }}
 where lsoa21_code is not null
 group by 1, 2, 3, 4, 5

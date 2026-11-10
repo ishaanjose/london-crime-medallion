@@ -68,6 +68,12 @@ models:
                 values:
                   - police_uk
                   - spatial
+  - name: int_police_uk__street_dedup_source
+    columns:
+      - name: record_id
+        data_tests:
+          - unique
+          - not_null
   - name: int_police_uk__outcomes_deduped
     columns:
       - name: record_id
