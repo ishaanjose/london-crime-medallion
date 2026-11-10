@@ -10,6 +10,7 @@ export interface LayerInfo {
   dataLastEditDate: Date;
   maxRecordCount: number;
   objectIdField: string;
+  fields: string[];
 }
 
 interface LayerInfoResponse {
@@ -18,6 +19,7 @@ interface LayerInfoResponse {
   };
   maxRecordCount?: unknown;
   objectIdField?: unknown;
+  fields?: unknown;
   error?: unknown;
 }
 
@@ -26,6 +28,7 @@ export interface FetchFeaturesOptions {
   outFields: string;
   returnGeometry: boolean;
   format: "geojson" | "json";
+  where?: string;
 }
 
 export async function getLayerInfo(layerUrl: string): Promise<LayerInfo> {
@@ -52,25 +55,57 @@ export async function getLayerInfo(layerUrl: string): Promise<LayerInfo> {
   const timestamp = layerInfo.editingInfo?.dataLastEditDate;
   const maxRecordCount = layerInfo.maxRecordCount;
   const objectIdField = layerInfo.objectIdField;
+  const fields = layerInfo.fields;
   if (
     typeof timestamp !== "number" ||
     !Number.isFinite(timestamp) ||
     typeof maxRecordCount !== "number" ||
     !Number.isFinite(maxRecordCount) ||
     typeof objectIdField !== "string" ||
-    objectIdField.length === 0
+    objectIdField.length === 0 ||
+    !Array.isArray(fields)
   ) {
     throw new Error(
-      "ONS layer response is missing editingInfo.dataLastEditDate, maxRecordCount, or objectIdField",
+      "ONS layer response is missing editingInfo.dataLastEditDate, maxRecordCount, objectIdField, or fields",
     );
   }
+  const fieldNames = fields.map((field) => {
+    if (
+      typeof field !== "object" ||
+      field === null ||
+      !("name" in field) ||
+      typeof field.name !== "string" ||
+      field.name.length === 0
+    ) {
+      throw new Error("ONS layer response contains an invalid field");
+    }
+    return field.name;
+  });
 
   const dataLastEditDate = new Date(timestamp);
   if (Number.isNaN(dataLastEditDate.getTime())) {
     throw new Error("ONS layer response has an invalid dataLastEditDate");
   }
 
-  return { dataLastEditDate, maxRecordCount, objectIdField };
+  return {
+    dataLastEditDate,
+    maxRecordCount,
+    objectIdField,
+    fields: fieldNames,
+  };
+}
+
+export function findField(info: LayerInfo, pattern: RegExp): string {
+  const matches = info.fields.filter((field) => pattern.test(field));
+  if (matches.length === 0) {
+    throw new Error(`ONS layer has no field matching ${pattern}`);
+  }
+  if (matches.length > 1) {
+    throw new Error(
+      `ONS layer has multiple fields matching ${pattern}: ${matches.join(", ")}`,
+    );
+  }
+  return matches[0]!;
 }
 
 export async function fetchAllFeatures(
@@ -83,7 +118,7 @@ export async function fetchAllFeatures(
 
   while (true) {
     const params = new URLSearchParams({
-      where: "1=1",
+      where: options.where ?? "1=1",
       outFields: options.outFields,
       returnGeometry: String(options.returnGeometry),
       outSR: "4326",
@@ -137,7 +172,7 @@ export async function fetchAllFeatures(
   }
 
   const countParams = new URLSearchParams({
-    where: "1=1",
+    where: options.where ?? "1=1",
     returnCountOnly: "true",
     f: "json",
   });
