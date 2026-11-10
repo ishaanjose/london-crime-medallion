@@ -1,25 +1,25 @@
-outcome_type,outcome_group,outcome_stage
-Court case unable to proceed,Not convicted,court
-Defendant found not guilty,Not convicted,court
-Offender deprived of property,Convicted,court
-Offender fined,Convicted,court
-Offender given absolute discharge,Convicted,court
-Offender given community sentence,Convicted,court
-Offender given conditional discharge,Convicted,court
-Offender given suspended prison sentence,Convicted,court
-Offender ordered to pay compensation,Convicted,court
-Offender otherwise dealt with,Convicted,court
-Offender sent to prison,Convicted,court
-Defendant sent to Crown Court,Sent to Crown Court,court
-Investigation complete; no suspect identified,No suspect identified,police
-Local resolution,Out-of-court resolution,police
-Offender given a caution,Out-of-court resolution,police
-Offender given a drugs possession warning,Out-of-court resolution,police
-Offender given penalty notice,Out-of-court resolution,police
-Suspect charged,Charged,police
-Suspect charged as part of another case,Charged,police
-Unable to prosecute suspect,Unable to prosecute,police
-Formal action is not in the public interest,Not in public interest,police
-Further investigation is not in the public interest,Not in public interest,police
-Action to be taken by another organisation,Passed to another organisation,police
-Further action is not in the public interest,Not in public interest,police
+outcome_type,outcome_group,outcome_stage,outcome_priority
+Court case unable to proceed,Not convicted,court,9
+Defendant found not guilty,Not convicted,court,9
+Offender deprived of property,Convicted,court,9
+Offender fined,Convicted,court,9
+Offender given absolute discharge,Convicted,court,9
+Offender given community sentence,Convicted,court,9
+Offender given conditional discharge,Convicted,court,9
+Offender given suspended prison sentence,Convicted,court,9
+Offender ordered to pay compensation,Convicted,court,9
+Offender otherwise dealt with,Convicted,court,9
+Offender sent to prison,Convicted,court,9
+Defendant sent to Crown Court,Sent to Crown Court,court,9
+Investigation complete; no suspect identified,No suspect identified,police,6
+Local resolution,Out-of-court resolution,police,2
+Offender given a caution,Out-of-court resolution,police,2
+Offender given a drugs possession warning,Out-of-court resolution,police,2
+Offender given penalty notice,Out-of-court resolution,police,2
+Suspect charged,Charged,police,1
+Suspect charged as part of another case,Charged,police,1
+Unable to prosecute suspect,Unable to prosecute,police,3
+Formal action is not in the public interest,Not in public interest,police,4
+Further investigation is not in the public interest,Not in public interest,police,4
+Action to be taken by another organisation,Passed to another organisation,police,5
+Further action is not in the public interest,Not in public interest,police,4
