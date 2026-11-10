@@ -29,6 +29,7 @@ export async function landImd(
         FROM read_csv(
           ${quoteSql(csvPath)},
           header = true,
+          delim = ',', quote = '"', escape = '"',
           all_varchar = true
         )
       )

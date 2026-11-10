@@ -36,6 +36,7 @@ export async function landRailStations(
         FROM read_csv(
           ${quoteSql(csvPath)},
           header = true,
+          delim = ',', quote = '"', escape = '"',
           all_varchar = true
         )
       )

@@ -89,3 +89,22 @@ models:
               arguments:
                 min_value: 0
                 max_value: 314.16
+
+  - name: int_police_uk__crime_outcomes
+    columns:
+      - name: crime_id
+        data_tests:
+          - unique
+          - not_null
+      - name: months_to_charge
+        description: Months from the crime to its first charge; a negative value means the outcome join is wrong.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: force
+        data_tests:
+          - not_null
+      - name: is_outcome_data_impaired
+        data_tests:
+          - not_null
