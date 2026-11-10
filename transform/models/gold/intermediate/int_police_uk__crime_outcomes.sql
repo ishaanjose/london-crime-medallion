@@ -6,7 +6,8 @@ with crimes as (
         arg_min(month, record_id) as crime_month,
         arg_min(lsoa21_code, record_id) as lsoa21_code,
         arg_min(borough_code, record_id) as borough_code,
-        arg_min(crime_group, record_id) as crime_group
+        arg_min(crime_group, record_id) as crime_group,
+        arg_min(force, record_id) as force
     from {{ ref('int_police_uk__street_dedup_source') }}
     where crime_id is not null
         and lsoa21_code is not null
@@ -39,13 +40,23 @@ select
     crimes.lsoa21_code,
     crimes.borough_code,
     crimes.crime_group,
+    crimes.force,
     per_crime.first_charge_month,
     per_crime.last_outcome_month,
     per_crime.final_outcome_group,
     per_crime.outcome_count,
     per_crime.first_charge_month is not null as ever_charged,
     date_diff('month', crimes.crime_month, per_crime.first_charge_month) as months_to_charge,
-    per_crime.final_outcome_group is null as has_no_outcome
+    per_crime.final_outcome_group is null as has_no_outcome,
+    -- the crime's 12-month follow-up window overlaps a known degraded or collapsed gap for its force
+    exists (
+        select 1
+        from {{ ref('known_outcome_gaps') }} as gaps
+        where gaps.force = crimes.force
+            and gaps.severity in ('degraded', 'collapsed')
+            and cast(gaps.start_month as date) <= crimes.crime_month + interval 12 month
+            and cast(gaps.end_month as date) >= crimes.crime_month
+    ) as is_outcome_data_impaired
 from crimes
 left join per_crime
     on crimes.crime_id = per_crime.crime_id
