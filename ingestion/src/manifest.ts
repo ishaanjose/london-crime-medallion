@@ -4,12 +4,14 @@ import { dirname } from "node:path";
 import { isFileNotFound } from "./fsUtils.js";
 import {
   MET_MANIFEST_PATH,
+  IMD_MANIFEST_PATH,
   NOMIS_MANIFEST_PATH,
   ONS_MANIFEST_PATH,
   POLICE_UK_MANIFEST_PATH,
 } from "./paths.js";
 import type { MetRelease } from "./sources/metDatastore.js";
 import type { ArchiveInfo } from "./sources/policeUk.js";
+import type { ImdFileInfo } from "./sources/mhclgImd.js";
 
 interface ManifestEntry {
   md5: string;
@@ -37,6 +39,15 @@ interface OnsManifestEntry {
 interface NomisManifestEntry {
   dataset: "NM_2014_1";
   lastUpdated: string;
+  batchId: string;
+  ingestedAt: string;
+}
+
+interface ImdManifestEntry {
+  release: string;
+  etag: string;
+  lastModified: string;
+  size: number;
   batchId: string;
   ingestedAt: string;
 }
@@ -191,4 +202,38 @@ export async function writeNomisRelease(
     ingestedAt: new Date().toISOString(),
   });
   await writeEntries(NOMIS_MANIFEST_PATH, entries);
+}
+
+export async function hasIngestedImdFile(
+  release: string,
+  etag: string,
+): Promise<boolean> {
+  const entries = await readEntries<ImdManifestEntry>(IMD_MANIFEST_PATH);
+  return entries.some(
+    (entry) => entry.release === release && entry.etag === etag,
+  );
+}
+
+export async function writeImdFile(
+  release: string,
+  info: ImdFileInfo,
+  batchId: string,
+): Promise<void> {
+  const entries = await readEntries<ImdManifestEntry>(IMD_MANIFEST_PATH);
+  if (
+    entries.some(
+      (entry) => entry.release === release && entry.etag === info.etag,
+    )
+  ) {
+    return;
+  }
+  entries.push({
+    release,
+    etag: info.etag,
+    lastModified: info.lastModified.toISOString(),
+    size: info.size,
+    batchId,
+    ingestedAt: new Date().toISOString(),
+  });
+  await writeEntries(IMD_MANIFEST_PATH, entries);
 }
