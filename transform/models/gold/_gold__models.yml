@@ -14,6 +14,7 @@ seeds:
           arguments:
             combination_of_columns:
               - month
+              - force
               - crime_type
   - name: london_boroughs
     columns:

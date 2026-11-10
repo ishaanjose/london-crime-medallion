@@ -1,9 +1,9 @@
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { DuckDBConnection } from "@duckdb/node-api";
 
-import { DATA_DIR } from "./paths.js";
+import { DATA_DIR, DOWNLOADS_DIR } from "./paths.js";
 import { quoteSql } from "./sql.js";
 
 export async function landToBronze(
@@ -14,8 +14,13 @@ export async function landToBronze(
 ): Promise<void> {
   const bronzeDir = join(DATA_DIR, "bronze/police_uk", dataset);
   const archiveDir = join(bronzeDir, `archive=${archiveName}`);
-  await rm(archiveDir, { recursive: true, force: true });
-  await mkdir(archiveDir, { recursive: true });
+  const stagingDir = join(
+    DOWNLOADS_DIR,
+    "staging",
+    `police_uk-${dataset}-${archiveName}`,
+  );
+  await rm(stagingDir, { recursive: true, force: true });
+  await mkdir(stagingDir, { recursive: true });
 
   const connection = await DuckDBConnection.create();
   try {
@@ -34,10 +39,15 @@ export async function landToBronze(
           filename = true
         )
       )
-      TO ${quoteSql(archiveDir)}
+      TO ${quoteSql(stagingDir)}
       (FORMAT parquet, PARTITION_BY (month), COMPRESSION zstd)
     `);
+
+    await rm(archiveDir, { recursive: true, force: true });
+    await mkdir(bronzeDir, { recursive: true });
+    await rename(stagingDir, archiveDir);
   } finally {
     connection.closeSync();
+    await rm(stagingDir, { recursive: true, force: true });
   }
 }

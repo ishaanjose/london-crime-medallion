@@ -1,45 +1,48 @@
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { DuckDBConnection } from "@duckdb/node-api";
 
-import { DATA_DIR } from "./paths.js";
+import { DATA_DIR, DOWNLOADS_DIR } from "./paths.js";
 import { quoteSql } from "./sql.js";
 
-export async function landMetToBronze(
-  csvPath: string,
+export async function landMetRelease(
+  files: { kind: "recent" | "historical"; csvPath: string }[],
   releaseDate: string,
-  fileKind: "recent" | "historical",
   batchId: string,
 ): Promise<void> {
-  const releaseDir = join(
-    DATA_DIR,
-    "bronze/met_datastore/lsoa",
-    `release=${releaseDate}`,
-  );
-  const parquetPath = join(releaseDir, `${fileKind}.parquet`);
-  await rm(parquetPath, { force: true });
-  await mkdir(releaseDir, { recursive: true });
+  const lsoaDir = join(DATA_DIR, "bronze/met_datastore/lsoa");
+  const releaseDir = join(lsoaDir, `release=${releaseDate}`);
+  const stagingDir = join(DOWNLOADS_DIR, "staging", `met-${releaseDate}`);
+  await rm(stagingDir, { recursive: true, force: true });
+  await mkdir(stagingDir, { recursive: true });
 
   const connection = await DuckDBConnection.create();
   try {
-    await connection.run(`
-      COPY (
-        SELECT
-          *,
-          current_timestamp AS ingested_at,
-          ${quoteSql(batchId)} AS batch_id
-        FROM read_csv(
-          ${quoteSql(csvPath)},
-          all_varchar = true,
-          header = true,
-          filename = true
+    for (const file of files) {
+      await connection.run(`
+        COPY (
+          SELECT
+            *,
+            current_timestamp AS ingested_at,
+            ${quoteSql(batchId)} AS batch_id
+          FROM read_csv(
+            ${quoteSql(file.csvPath)},
+            all_varchar = true,
+            header = true,
+            filename = true
+          )
         )
-      )
-      TO ${quoteSql(parquetPath)}
-      (FORMAT parquet, COMPRESSION zstd)
-    `);
+        TO ${quoteSql(join(stagingDir, `${file.kind}.parquet`))}
+        (FORMAT parquet, COMPRESSION zstd)
+      `);
+    }
+
+    await rm(releaseDir, { recursive: true, force: true });
+    await mkdir(lsoaDir, { recursive: true });
+    await rename(stagingDir, releaseDir);
   } finally {
     connection.closeSync();
+    await rm(stagingDir, { recursive: true, force: true });
   }
 }
