@@ -29,6 +29,14 @@ export async function extractLondonFiles(
   zipPath: string,
   outDir: string,
 ): Promise<string[]> {
+  return extractMatching(zipPath, outDir, LONDON_FILE);
+}
+
+export async function extractMatching(
+  zipPath: string,
+  outDir: string,
+  pattern: RegExp,
+): Promise<string[]> {
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
 
@@ -58,7 +66,7 @@ export async function extractLondonFiles(
         }
       });
       zipfile.on("entry", (entry) => {
-        const match = LONDON_FILE.exec(entry.fileName);
+        const match = pattern.exec(entry.fileName);
         if (!match) {
           zipfile.readEntry();
           return;
