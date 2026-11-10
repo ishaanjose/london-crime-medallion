@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: tfl
+    tables:
+      - name: stop_points
+        meta:
+          external_location: "read_text('../data/bronze/tfl/stop_points/*/*/stop_points.json')"
