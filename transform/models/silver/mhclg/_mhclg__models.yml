@@ -22,3 +22,36 @@ models:
           - accepted_values:
               arguments:
                 values: ['U', 'S', 'M', 'X']
+  - name: mhclg__imd_lsoa21
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - lsoa21_code
+              - release
+              - measure
+    columns:
+      - name: lsoa21_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('ons__london_lsoa21')
+                field: lsoa21_code
+      - name: release
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['iod2019', 'iod2025']
+      - name: measure
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - imd
+                  - income
+                  - employment
+                  - education
+                  - health
+                  - crime
+                  - barriers
+                  - living_environment
