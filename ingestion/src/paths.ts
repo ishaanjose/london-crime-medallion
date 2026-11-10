@@ -25,3 +25,7 @@ export const IMD_MANIFEST_PATH = join(
   "bronze/mhclg_imd/_manifest.json",
 );
 export const TFL_MANIFEST_PATH = join(DATA_DIR, "bronze/tfl/_manifest.json");
+export const GREENSPACE_MANIFEST_PATH = join(
+  DATA_DIR,
+  "bronze/os_open_greenspace/_manifest.json",
+);

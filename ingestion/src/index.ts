@@ -4,6 +4,7 @@ import { ingestNomisPopulation } from "./ingestNomisPopulation.js";
 import { ingestImd } from "./ingestImd.js";
 import { ingestOnsGeography } from "./ingestOnsGeography.js";
 import { ingestTfl } from "./ingestTfl.js";
+import { ingestGreenspace } from "./ingestGreenspace.js";
 import {
   archiveUrl,
   BACKFILL_ARCHIVES,
@@ -19,3 +20,4 @@ await ingestOnsGeography();
 await ingestNomisPopulation();
 await ingestImd();
 await ingestTfl();
+await ingestGreenspace();
