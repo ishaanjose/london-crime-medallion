@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { landAttributeTable, landBoundaries } from "./landOnsGeography.js";
+import { landAttributeTable, landGeoJson } from "./landOnsGeography.js";
 import {
   hasIngestedOnsLayer,
   onsLayerKey,
@@ -11,6 +11,7 @@ import {
   getLayerInfo,
   LSOA11_LSOA21_LAD22_LOOKUP_LAYER,
   LSOA21_BOUNDARIES_LAYER,
+  LSOA21_POP_CENTROIDS_LAYER,
   findField,
   ONSPD_LATEST_LAYER,
 } from "./sources/onsGeography.js";
@@ -31,6 +32,13 @@ interface OnsLayerConfig {
   ) => Promise<void>;
 }
 
+const LONDON_ENVELOPE: Record<string, string> = {
+  geometry: "503000,155000,562000,202000",
+  geometryType: "esriGeometryEnvelope",
+  inSR: "27700",
+  spatialRel: "esriSpatialRelIntersects",
+};
+
 const LAYERS: OnsLayerConfig[] = [
   {
     layerName: "lsoa21 boundaries",
@@ -38,13 +46,19 @@ const LAYERS: OnsLayerConfig[] = [
     outFields: "LSOA21CD,LSOA21NM",
     returnGeometry: true,
     format: "geojson",
-    extraParams: {
-      geometry: "503000,155000,562000,202000",
-      geometryType: "esriGeometryEnvelope",
-      inSR: "27700",
-      spatialRel: "esriSpatialRelIntersects",
-    },
-    land: landBoundaries,
+    extraParams: LONDON_ENVELOPE,
+    land: (features, editDate) =>
+      landGeoJson("lsoa21_boundaries", features, editDate),
+  },
+  {
+    layerName: "lsoa21 population centroids",
+    layerUrl: LSOA21_POP_CENTROIDS_LAYER,
+    outFields: "LSOA21CD",
+    returnGeometry: true,
+    format: "geojson",
+    extraParams: LONDON_ENVELOPE,
+    land: (features, editDate) =>
+      landGeoJson("lsoa21_pop_centroids", features, editDate),
   },
   {
     layerName: "lsoa lookup",

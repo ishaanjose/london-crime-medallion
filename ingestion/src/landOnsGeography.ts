@@ -7,16 +7,18 @@ import { DuckDBConnection } from "@duckdb/node-api";
 import { DATA_DIR, DOWNLOADS_DIR } from "./paths.js";
 import { quoteSql } from "./sql.js";
 
-export async function landBoundaries(
+export async function landGeoJson(
+  dataset: string,
   features: unknown[],
   editDate: string,
 ): Promise<void> {
   const dir = join(
     DATA_DIR,
-    "bronze/ons_geography/lsoa21_boundaries",
+    "bronze/ons_geography",
+    dataset,
     `edit=${editDate}`,
   );
-  const finalPath = join(dir, "lsoa21_boundaries.geojson");
+  const finalPath = join(dir, `${dataset}.geojson`);
   const tempPath = `${finalPath}.tmp`;
 
   await rm(dir, { recursive: true, force: true });
