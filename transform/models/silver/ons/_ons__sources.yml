@@ -10,6 +10,9 @@ sources:
         meta:
           # Keep this above the current ~84 MB FeatureCollection size.
           external_location: "read_json('../data/bronze/ons_geography/lsoa21_boundaries/*/*.geojson', format = 'unstructured', maximum_object_size = 500000000, hive_partitioning = true)"
+      - name: lsoa21_pop_centroids
+        meta:
+          external_location: "read_json('../data/bronze/ons_geography/lsoa21_pop_centroids/*/*.geojson', format = 'unstructured', hive_partitioning = true)"
       - name: postcodes
         meta:
           external_location: "read_parquet('../data/bronze/ons_geography/postcodes/*/*.parquet', hive_partitioning = true)"
