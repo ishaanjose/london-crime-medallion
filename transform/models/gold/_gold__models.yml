@@ -157,3 +157,121 @@ models:
       - name: crime_count
         data_tests:
           - not_null
+
+  - name: dim_lsoa
+    data_tests:
+      - dbt_utils.equal_rowcount:
+          arguments:
+            compare_model: ref('ons__london_lsoa21')
+    columns:
+      - name: lsoa21_code
+        data_tests:
+          - unique
+          - not_null
+      - name: lsoa21_name
+        data_tests:
+          - not_null
+      - name: borough_code
+        data_tests:
+          - not_null
+      - name: borough_name
+        data_tests:
+          - not_null
+      - name: area_km2
+        data_tests:
+          - not_null
+      - name: centroid_lat
+        data_tests:
+          - not_null
+      - name: centroid_lon
+        data_tests:
+          - not_null
+      - name: imd_decile_2019
+        data_tests:
+          - not_null
+      - name: imd_decile_2025
+        data_tests:
+          - not_null
+      - name: imd_rank_2025
+        data_tests:
+          - not_null
+      - name: income_decile_2019
+        data_tests:
+          - not_null
+      - name: income_decile_2025
+        data_tests:
+          - not_null
+      - name: employment_decile_2019
+        data_tests:
+          - not_null
+      - name: employment_decile_2025
+        data_tests:
+          - not_null
+      - name: imd_2019_mapping_method
+        data_tests:
+          - not_null
+      - name: nearest_station_m
+        data_tests:
+          - not_null
+      - name: nearest_station_name
+        data_tests:
+          - not_null
+      - name: nearest_station_key
+        data_tests:
+          - not_null
+      - name: nearest_station_network
+        data_tests:
+          - not_null
+      - name: stations_within_1km
+        data_tests:
+          - not_null
+      - name: nearest_park_entrance_m
+        data_tests:
+          - not_null
+      - name: nearest_park_site_id
+        data_tests:
+          - not_null
+      - name: nearest_park_name
+        description: Null when the nearest park has no name in OS Open Greenspace.
+      - name: park_ha_within_1km
+        data_tests:
+          - not_null
+
+  - name: fct_police_uk_lsoa_month
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - lsoa21_code
+              - month
+    columns:
+      - name: lsoa21_code
+        data_tests:
+          - not_null
+      - name: borough_code
+        data_tests:
+          - not_null
+      - name: month
+        data_tests:
+          - not_null
+      - name: crime_count
+        data_tests:
+          - not_null
+      - name: asb_count
+        data_tests:
+          - not_null
+      - name: population
+        data_tests:
+          - not_null
+      - name: population_year
+        data_tests:
+          - not_null
+      - name: population_is_estimated_year
+        data_tests:
+          - not_null
+      - name: crimes_per_1000
+        data_tests:
+          - not_null
+      - name: is_low_population
+        data_tests:
+          - not_null
