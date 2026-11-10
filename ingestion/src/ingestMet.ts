@@ -3,7 +3,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { downloadFile } from "./download.js";
-import { landMetToBronze } from "./landMetToBronze.js";
+import { landMetRelease } from "./landMetToBronze.js";
 import {
   hasIngestedMetRelease,
   metReleaseKey,
@@ -33,8 +33,6 @@ export async function ingestMet(): Promise<void> {
     release.recent.checkSize,
     "met recent",
   );
-  await landMetToBronze(recentPath, release.releaseDate, "recent", batchId);
-
   const historicalPath = join(releaseDir, "historical.csv");
   await downloadFile(
     release.historical.url,
@@ -42,10 +40,13 @@ export async function ingestMet(): Promise<void> {
     release.historical.checkSize,
     "met historical",
   );
-  await landMetToBronze(
-    historicalPath,
+
+  await landMetRelease(
+    [
+      { kind: "recent", csvPath: recentPath },
+      { kind: "historical", csvPath: historicalPath },
+    ],
     release.releaseDate,
-    "historical",
     batchId,
   );
   await writeMetRelease(release);
