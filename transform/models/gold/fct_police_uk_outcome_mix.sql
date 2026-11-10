@@ -9,18 +9,21 @@ aggregated as (
         borough_code,
         crime_month,
         crime_group,
+        force,
+        -- set per force and crime month, so it is constant within the group
+        is_outcome_data_impaired,
         -- crimes with no outcome keep their own group instead of disappearing
         coalesce(final_outcome_group, 'No outcome recorded') as final_outcome_group,
-        count(*) as crimes,
-        bool_or(is_outcome_data_impaired) as is_outcome_data_impaired
+        count(*) as crimes
     from {{ ref('int_police_uk__crime_outcomes') }}
-    group by 1, 2, 3, 4
+    group by all
 )
 select
     aggregated.borough_code,
     london_boroughs.borough_name,
     aggregated.crime_month,
     aggregated.crime_group,
+    aggregated.force,
     aggregated.final_outcome_group,
     aggregated.crimes,
     aggregated.is_outcome_data_impaired,

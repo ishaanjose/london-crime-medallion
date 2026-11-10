@@ -1,4 +1,4 @@
--- aggregating to borough x month x crime group must keep every crime
+-- aggregating to borough x month x crime group x force must keep every crime
 with fact as (
     select sum(crimes) as total
     from {{ ref('fct_police_uk_charge_rates') }}

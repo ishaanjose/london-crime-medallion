@@ -2,3 +2,4 @@ force,start_month,end_month,severity,reason
 Metropolitan Police Service,2017-10-01,2019-03-01,degraded,Met outcome volume drifted from about 50k to the 30s a month; 2018 crimes show about 50% with no outcome
 Metropolitan Police Service,2019-04-01,2020-04-01,collapsed,Met outcome recording fell to about 7k to 10k a month (normal about 50k); backlog of about 127k and 161k recorded Mar and Apr 2020 and dated by recording month
 Metropolitan Police Service,2022-04-01,2022-04-01,step,Drop from an elevated early-2022 level (about 84k a month) back to normal (about 50k); not missing data
+Metropolitan Police Service,2012-01-01,2012-03-01,degraded,police.uk outcome publishing ramping up: about 2k to 4k Met outcome rows a month vs about 45k from Apr 2012
