@@ -29,3 +29,7 @@ export const GREENSPACE_MANIFEST_PATH = join(
   DATA_DIR,
   "bronze/os_open_greenspace/_manifest.json",
 );
+export const NAPTAN_MANIFEST_PATH = join(
+  DATA_DIR,
+  "bronze/naptan/_manifest.json",
+);
