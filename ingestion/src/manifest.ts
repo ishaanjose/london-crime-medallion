@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { isFileNotFound } from "./fsUtils.js";
 import {
   MET_MANIFEST_PATH,
+  NOMIS_MANIFEST_PATH,
   ONS_MANIFEST_PATH,
   POLICE_UK_MANIFEST_PATH,
 } from "./paths.js";
@@ -30,6 +31,13 @@ interface MetManifestEntry {
 interface OnsManifestEntry {
   layerName: string;
   dataLastEditDate: string;
+  ingestedAt: string;
+}
+
+interface NomisManifestEntry {
+  dataset: "NM_2014_1";
+  lastUpdated: string;
+  batchId: string;
   ingestedAt: string;
 }
 
@@ -153,4 +161,34 @@ export async function writeOnsLayer(
     ingestedAt: new Date().toISOString(),
   });
   await writeEntries(ONS_MANIFEST_PATH, entries);
+}
+
+export async function hasIngestedNomisRelease(
+  lastUpdated: string,
+): Promise<boolean> {
+  const entries = await readEntries<NomisManifestEntry>(NOMIS_MANIFEST_PATH);
+  return entries.some(
+    (entry) => entry.dataset === "NM_2014_1" && entry.lastUpdated === lastUpdated,
+  );
+}
+
+export async function writeNomisRelease(
+  lastUpdated: string,
+  batchId: string,
+): Promise<void> {
+  const entries = await readEntries<NomisManifestEntry>(NOMIS_MANIFEST_PATH);
+  if (
+    entries.some(
+      (entry) => entry.dataset === "NM_2014_1" && entry.lastUpdated === lastUpdated,
+    )
+  ) {
+    return;
+  }
+  entries.push({
+    dataset: "NM_2014_1",
+    lastUpdated,
+    batchId,
+    ingestedAt: new Date().toISOString(),
+  });
+  await writeEntries(NOMIS_MANIFEST_PATH, entries);
 }
