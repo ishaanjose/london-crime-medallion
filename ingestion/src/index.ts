@@ -5,6 +5,7 @@ import { ingestImd } from "./ingestImd.js";
 import { ingestOnsGeography } from "./ingestOnsGeography.js";
 import { ingestTfl } from "./ingestTfl.js";
 import { ingestGreenspace } from "./ingestGreenspace.js";
+import { ingestNaptan } from "./ingestNaptan.js";
 import {
   archiveUrl,
   BACKFILL_ARCHIVES,
@@ -23,6 +24,7 @@ const sources: [string, () => Promise<void>][] = [
   ["imd", ingestImd],
   ["tfl", ingestTfl],
   ["greenspace", ingestGreenspace],
+  ["naptan rail", ingestNaptan],
 ];
 
 const failed: string[] = [];
