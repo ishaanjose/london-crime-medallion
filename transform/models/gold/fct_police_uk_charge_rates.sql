@@ -10,18 +10,21 @@ aggregated as (
         borough_code,
         crime_month,
         crime_group,
+        force,
+        -- set per force and crime month, so it is constant within the group
+        is_outcome_data_impaired,
         count(*) as crimes,
         count(*) filter (where months_to_charge <= 12) as charged_within_12m,
-        count(*) filter (where ever_charged) as charged_ever,
-        bool_or(is_outcome_data_impaired) as is_outcome_data_impaired
+        count(*) filter (where ever_charged) as charged_ever
     from {{ ref('int_police_uk__crime_outcomes') }}
-    group by borough_code, crime_month, crime_group
+    group by borough_code, crime_month, crime_group, force, is_outcome_data_impaired
 )
 select
     aggregated.borough_code,
     london_boroughs.borough_name,
     aggregated.crime_month,
     aggregated.crime_group,
+    aggregated.force,
     aggregated.crimes,
     aggregated.charged_within_12m,
     aggregated.charged_ever,
