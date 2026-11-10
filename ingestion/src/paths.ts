@@ -24,3 +24,4 @@ export const IMD_MANIFEST_PATH = join(
   DATA_DIR,
   "bronze/mhclg_imd/_manifest.json",
 );
+export const TFL_MANIFEST_PATH = join(DATA_DIR, "bronze/tfl/_manifest.json");

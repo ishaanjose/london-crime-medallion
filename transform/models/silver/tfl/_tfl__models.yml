@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: tfl__stations
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "not is_in_london or lsoa21_code is not null"
+    columns:
+      - name: station_key
+        data_tests:
+          - unique
+          - not_null
+      - name: lsoa21_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('ons__london_lsoa21')
+                field: lsoa21_code
