@@ -40,6 +40,11 @@ PARTITION_COLUMNS = {
 
 PARQUET = "FORMAT parquet, COMPRESSION zstd"
 
+GEOJSON_EXPORTS = [
+    {"name": "geo_lsoa", "table": "main_gold.geo_lsoa", "id": "lsoa21_code", "extras": []},
+    {"name": "geo_borough", "table": "main_gold.geo_borough", "id": "borough_code", "extras": ["borough_name"]},
+]
+
 
 def export_tables(con: duckdb.DuckDBPyConnection) -> None:
     for spec in EXPORTS:
@@ -57,6 +62,41 @@ def export_tables(con: duckdb.DuckDBPyConnection) -> None:
         print(f"exported {name}")
 
 
+def write_geojson(
+    con: duckdb.DuckDBPyConnection, table: str, id_column: str, extra_columns: list[str], path: Path
+) -> None:
+    columns = [id_column, *extra_columns]
+    rows = con.execute(
+        f"select {', '.join(columns)}, ST_AsGeoJSON(geometry) from {table} order by {id_column}"
+    ).fetchall()
+    features = [
+        {
+            "type": "Feature",
+            "id": row[0],
+            "properties": dict(zip(columns, row[:-1])),
+            "geometry": json.loads(row[-1]),
+        }
+        for row in rows
+    ]
+    collection = {"type": "FeatureCollection", "features": features}
+    path.write_text(json.dumps(collection, separators=(",", ":")))
+
+
+def export_geojson(con: duckdb.DuckDBPyConnection) -> None:
+    for spec in GEOJSON_EXPORTS:
+        write_geojson(con, spec["table"], spec["id"], spec["extras"], STAGING / f"{spec['name']}.geojson")
+        print(f"exported {spec['name']}")
+
+
+def file_entry(path: Path, rows: int) -> dict:
+    return {
+        "path": path.relative_to(STAGING).as_posix(),
+        "bytes": path.stat().st_size,
+        "sha256": sha256_prefix(path),
+        "rows": rows,
+    }
+
+
 def sha256_prefix(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as f:
@@ -69,12 +109,10 @@ def build_index(con: duckdb.DuckDBPyConnection) -> dict:
     files = []
     for path in sorted(STAGING.rglob("*.parquet")):
         rows = con.execute("select count(*) from read_parquet(?)", [str(path)]).fetchone()[0]
-        files.append({
-            "path": path.relative_to(STAGING).as_posix(),
-            "bytes": path.stat().st_size,
-            "sha256": sha256_prefix(path),
-            "rows": rows,
-        })
+        files.append(file_entry(path, rows))
+    for path in sorted(STAGING.glob("*.geojson")):
+        features = json.loads(path.read_text())["features"]
+        files.append(file_entry(path, len(features)))
     git_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
     ).stdout.strip()
@@ -107,7 +145,9 @@ def main() -> None:
 
     con = duckdb.connect(str(WAREHOUSE), read_only=True)
     try:
+        con.load_extension("spatial")
         export_tables(con)
+        export_geojson(con)
         index = build_index(con)
     finally:
         con.close()
