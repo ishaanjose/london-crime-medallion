@@ -405,3 +405,41 @@ models:
                   - Passed to another organisation
                   - No suspect identified
                   - No outcome recorded
+
+  - name: dim_map_point
+    description: >
+      One row per police.uk anonymised map point. point_id is a dense rank, stable only within
+      one build; it always rebuilds together with fct_police_uk_point_month.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - longitude
+              - latitude
+    columns:
+      - name: point_id
+        data_tests:
+          - unique
+          - not_null
+      - name: lsoa21_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_lsoa')
+                field: lsoa21_code
+
+  - name: fct_police_uk_point_month
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - point_id
+              - month
+              - crime_group
+    columns:
+      - name: point_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_map_point')
+                field: point_id
