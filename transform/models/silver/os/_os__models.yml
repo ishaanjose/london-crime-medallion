@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: os__greenspace_sites
+    columns:
+      - name: site_id
+        data_tests:
+          - unique
+          - not_null
+      - name: site_function
+        data_tests:
+          - not_null
+  - name: os__access_points
+    columns:
+      - name: access_point_id
+        data_tests:
+          - unique
+          - not_null
+      - name: site_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('os__greenspace_sites')
+                field: site_id
