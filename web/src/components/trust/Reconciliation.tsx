@@ -123,10 +123,12 @@ export default function Reconciliation() {
     const domMin = Math.floor(Math.min(...vals) / 25) * 25;
     const range = domMax - domMin;
     const step = range / 25 + 1 > 6 ? 50 : 25;
+    // Anchor ticks on 0 so it is always on the step grid and never lands
+    // 25 points from a neighbour (they'd overlap with interval={0}).
     const ticks: number[] = [];
-    for (let v = domMin; v <= domMax; v += step) ticks.push(v);
-    if (!ticks.includes(0)) ticks.push(0);
-    ticks.sort((a, b) => a - b);
+    for (let v = Math.ceil(Math.min(domMin, 0) / step) * step; v <= Math.max(domMax, 0); v += step) {
+      ticks.push(v);
+    }
     return { domain: [domMin, domMax] as [number, number], ticks };
   }, [chartData]);
 
@@ -298,6 +300,7 @@ export default function Reconciliation() {
               width={72}
               domain={pctRange.domain}
               ticks={pctRange.ticks}
+              interval={0}
             />
             <Tooltip
               contentStyle={tooltipStyle}

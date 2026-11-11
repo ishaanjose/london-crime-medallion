@@ -41,3 +41,37 @@ export const mapSeq = {
 } as const;
 
 export type MapSeqPalette = typeof mapSeq;
+
+// 10-step version of mapSeq, linearly interpolated (RGB) from the 7 stops so
+// the two ramps share endpoints. Used when a fixed scheme has 10 classes
+// (IMD deciles).
+export const mapSeq10 = {
+  light: [
+    "#ffffd4",
+    "#fee6a5",
+    "#fec46c",
+    "#fe9929",
+    "#e57217",
+    "#c4510b",
+    "#993404",
+    "#7a2604",
+    "#5a1903",
+    "#3b0d02",
+  ],
+  dark: [
+    "#2d1b05",
+    "#4c290c",
+    "#703910",
+    "#994a10",
+    "#c06717",
+    "#dd8721",
+    "#f0a830",
+    "#f7c355",
+    "#fcde85",
+    "#fff7c0",
+  ],
+} as const;
+
+// Fill for areas with no value. Same greys as lowPop so missing and
+// suppressed areas read alike.
+export const noData = mapSeq.lowPop;

@@ -5,9 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { loadIndex, type ExportIndex } from "@/lib/data";
 import { parquet, parquetYears, query } from "@/lib/query";
 import { formatMonth } from "@/lib/format";
-import { classify } from "@/lib/classify";
-import LsoaMap, { type LsoaValue, type DimRow } from "@/components/LsoaMap";
-import MapLegend from "@/components/MapLegend";
+import {
+  classify, fixedClasses, IMD_PRESET, INCOME_PRESET, STATION_PRESET, PARK_PRESET, type FixedPreset,
+} from "@/lib/classify";
+import LsoaMap, {
+  contextValue, type LsoaValue, type DimRow, type MapLayer, type ContextLayer,
+} from "@/components/LsoaMap";
+import MapLegend, { FixedLegend } from "@/components/MapLegend";
 import SectionBoundary from "@/components/SectionBoundary";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -31,12 +35,118 @@ type MapValueRow = {
   per_1000: number | null;
 };
 
-type DimLsoaRow = {
-  lsoa21_code: string;
-  lsoa21_name: string;
-  borough_name: string;
-  imd_decile_2025: number | null;
+type DimLsoaRow = DimRow;
+
+const DIM_COLUMNS = [
+  "lsoa21_code", "lsoa21_name", "borough_name",
+  "imd_decile_2025", "income_decile_2025", "employment_decile_2025",
+  "nearest_station_m", "nearest_station_name", "nearest_station_network", "stations_within_1km",
+  "nearest_park_entrance_m", "nearest_park_name", "park_ha_within_1km",
+].join(", ");
+
+// ---- Context layers ---------------------------------------------------------
+
+const LAYERS: { value: MapLayer; label: string }[] = [
+  { value: "crime", label: "Crime" },
+  { value: "imd", label: "Deprivation (IMD 2025)" },
+  { value: "income", label: "Income deprivation (2025)" },
+  { value: "station", label: "Distance to station" },
+  { value: "park", label: "Park space nearby" },
+];
+
+const CRIME_HEADING = {
+  title: "LSOA crime map",
+  subtitle: "Police-recorded offences by Lower Super Output Area",
 };
+
+const CONTEXT: Record<ContextLayer, {
+  title: string;
+  subtitle: string;
+  preset: FixedPreset;
+  legendTitle: string;
+  // Labels for the first and last legend rows, which are in ascending value order
+  legendEnds?: { first: string; last: string };
+  ariaLabel: string;
+  caveat: string;
+}> = {
+  imd: {
+    title: "LSOA deprivation map",
+    subtitle: "Index of Multiple Deprivation 2025 decile by Lower Super Output Area",
+    preset: IMD_PRESET,
+    legendTitle: "IMD 2025 decile",
+    ariaLabel: "LSOA map: Index of Multiple Deprivation 2025 decile",
+    caveat: "IMD 2025 overall deprivation. Includes a crime domain, so compare with crime carefully.",
+  },
+  income: {
+    title: "LSOA income deprivation map",
+    subtitle: "Income Deprivation Domain 2025 decile by Lower Super Output Area",
+    preset: INCOME_PRESET,
+    legendTitle: "Income deprivation 2025 decile",
+    ariaLabel: "LSOA map: Income Deprivation Domain 2025 decile",
+    caveat: "Share of residents on low-income benefits, ranked against all of England. Unlike the overall IMD it has no crime domain, so it is the cleaner comparison with crime.",
+  },
+  station: {
+    title: "LSOA station access map",
+    subtitle: "Distance to the nearest station by Lower Super Output Area",
+    preset: STATION_PRESET,
+    legendTitle: "Distance to nearest station",
+    legendEnds: { first: "Better", last: "Worse" },
+    ariaLabel: "LSOA map: straight-line distance to nearest station",
+    caveat: "TfL plus National Rail stations, straight-line distance from the population-weighted centre.",
+  },
+  park: {
+    title: "LSOA park access map",
+    subtitle: "Public park area within 1 km by Lower Super Output Area",
+    preset: PARK_PRESET,
+    legendTitle: "Park area within 1 km",
+    legendEnds: { first: "Worse", last: "Better" },
+    ariaLabel: "LSOA map: hectares of park within 1 km",
+    caveat: "Public parks, gardens and playing fields.",
+  },
+};
+
+function isMapLayer(v: string | null): v is MapLayer {
+  return v === "crime" || v === "imd" || v === "income" || v === "station" || v === "park";
+}
+
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+const fmtInt = (n: number) => n.toLocaleString("en-GB", { maximumFractionDigits: 0 });
+
+function contextSummary(layer: ContextLayer, dim: Map<string, DimRow>): string | null {
+  const vals: number[] = [];
+  for (const d of dim.values()) {
+    const v = contextValue(d, layer);
+    if (v != null) vals.push(v);
+  }
+  if (vals.length === 0) return null;
+  const n = vals.length;
+  switch (layer) {
+    case "imd": {
+      const k = vals.filter((v) => v <= 3).length;
+      const pct = ((k / n) * 100).toLocaleString("en-GB", { maximumFractionDigits: 0 });
+      return `${pct}% of London LSOAs (${fmtInt(k)} of ${fmtInt(n)}) are in IMD deciles 1 to 3, the most deprived 30% in England.`;
+    }
+    case "income": {
+      const k = vals.filter((v) => v <= 3).length;
+      const pct = ((k / n) * 100).toLocaleString("en-GB", { maximumFractionDigits: 0 });
+      return `${pct}% of London LSOAs (${fmtInt(k)} of ${fmtInt(n)}) are in income deciles 1 to 3, the most income-deprived 30% in England.`;
+    }
+    case "station": {
+      const k = vals.filter((v) => v > 1500).length;
+      return `Median distance to the nearest station is ${fmtInt(median(vals))} m. ${fmtInt(k)} of ${fmtInt(n)} LSOAs are more than 1,500 m from one.`;
+    }
+    case "park": {
+      const med = median(vals).toLocaleString("en-GB", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      const k = vals.filter((v) => v < 5).length;
+      return `Median park area within 1 km is ${med} ha. ${fmtInt(k)} of ${fmtInt(n)} LSOAs have under 5 ha.`;
+    }
+  }
+}
 
 // ---- Helpers ----------------------------------------------------------------
 
@@ -110,6 +220,7 @@ function buildValuesQuery(
 // ---- URL state hook -------------------------------------------------------
 
 type MapSelection = {
+  layer: MapLayer;
   group: string;      // "all" | "asb" | crime group name
   period: "12m" | "1m";
   end: string;        // YYYY-MM
@@ -122,7 +233,9 @@ function useMapSelection(availableMonths: string[]): [MapSelection, (k: keyof Ma
 
   const latestMonth = availableMonths[0] ?? "";
 
+  const layerParam = sp.get("layer");
   const sel: MapSelection = {
+    layer:   isMapLayer(layerParam) ? layerParam : "crime",
     group:   sp.get("group")   ?? "all",
     period:  (sp.get("period") === "1m" ? "1m" : "12m") as "12m" | "1m",
     end:     sp.get("end")     ?? latestMonth,
@@ -136,6 +249,39 @@ function useMapSelection(availableMonths: string[]): [MapSelection, (k: keyof Ma
   }, [router, sp]);
 
   return [sel, setParam];
+}
+
+// ---- Theme hook -------------------------------------------------------------
+
+function readIsDark(): boolean {
+  if (typeof window === "undefined") return false;
+  const theme = document.documentElement.dataset.theme;
+  if (theme === "dark") return true;
+  if (theme === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+// Tracks the effective theme: an explicit data-theme on <html> wins, else the OS preference.
+function useIsDark(): boolean {
+  const [dark, setDark] = useState(readIsDark);
+
+  useEffect(() => {
+    const update = () => setDark(readIsDark());
+    update();
+
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", update);
+
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    return () => {
+      mq.removeEventListener("change", update);
+      observer.disconnect();
+    };
+  }, []);
+
+  return dark;
 }
 
 // ---- Skeleton & Error -------------------------------------------------------
@@ -288,10 +434,7 @@ function MapPageInner() {
 
   const [sel, setParam] = useMapSelection(availableMonths);
 
-  const dark = typeof window !== "undefined" && (
-    document.documentElement.dataset.theme === "dark" ||
-    (document.documentElement.dataset.theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)
-  );
+  const dark = useIsDark();
 
   // Load metadata once
   useEffect(() => {
@@ -304,7 +447,7 @@ function MapPageInner() {
           query<MonthRow>(`select distinct strftime(month, '%Y-%m') as month from ${parquet(idx, "fct_police_uk_london_month")} order by month desc`),
           query<CrimeGroupRow>(`select distinct crime_group from ${parquet(idx, "fct_police_uk_crimes_borough_month")} where crime_group is not null order by crime_group`),
           query<KnownIssueRow>(`select issue_type, scope, description, strftime(start_month, '%Y-%m-%d') as start_month, strftime(end_month, '%Y-%m-%d') as end_month from ${parquet(idx, "rpt_known_issues")} where issue_type = 'coverage gap'`),
-          query<DimLsoaRow>(`select lsoa21_code, lsoa21_name, borough_name, imd_decile_2025 from ${parquet(idx, "dim_lsoa")}`),
+          query<DimLsoaRow>(`select ${DIM_COLUMNS} from ${parquet(idx, "dim_lsoa")}`),
         ]);
 
         setAvailableMonths(monthRows.map((r) => r.month));
@@ -327,11 +470,17 @@ function MapPageInner() {
   useEffect(() => {
     if (!index || !metaLoaded) return;
 
+    // Cancel previous request
+    if (cancelRef.current) cancelRef.current();
+    cancelRef.current = null;
+
+    // Context layers colour from dim_lsoa, which is already loaded. The
+    // loading overlay and error are only rendered for the crime layer.
+    if (sel.layer !== "crime") return;
+
     const endMonth = sel.end || availableMonths[0];
     if (!endMonth) return;
 
-    // Cancel previous request
-    if (cancelRef.current) cancelRef.current();
     let cancelled = false;
     cancelRef.current = () => { cancelled = true; };
 
@@ -353,7 +502,7 @@ function MapPageInner() {
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, metaLoaded, sel.group, sel.period, sel.end]);
+  }, [index, metaLoaded, sel.layer, sel.group, sel.period, sel.end]);
 
   const endMonth = sel.end || availableMonths[0] || "";
   const windowMonths = sel.period === "1m" ? 1 : 12;
@@ -366,6 +515,23 @@ function MapPageInner() {
       : values.map((v) => v.n);
     return classify(usable, dark);
   }, [values, sel.measure, dark]);
+
+  const contextLayer: ContextLayer | null = sel.layer === "crime" ? null : sel.layer;
+
+  const fixed = useMemo(() => {
+    if (!contextLayer) return null;
+    const { edges, ...opts } = CONTEXT[contextLayer].preset;
+    return fixedClasses(edges, dark, opts);
+  }, [contextLayer, dark]);
+
+  const contextInfo = useMemo(() => {
+    if (!contextLayer || dim.size === 0) return null;
+    let hasNull = false;
+    for (const d of dim.values()) {
+      if (contextValue(d, contextLayer) == null) { hasNull = true; break; }
+    }
+    return { hasNull, summary: contextSummary(contextLayer, dim) };
+  }, [contextLayer, dim]);
 
   const windowLabel = useMemo(() => {
     if (!endMonth) return "";
@@ -380,8 +546,9 @@ function MapPageInner() {
       ? "anti-social behaviour"
       : sel.group;
     const measureLabel = sel.measure === "rate" ? "per 1,000 residents" : "count";
+    if (contextLayer) return CONTEXT[contextLayer].ariaLabel;
     return `LSOA crime map: ${groupLabel}, ${measureLabel}, ${windowLabel}`;
-  }, [sel, windowLabel]);
+  }, [sel, windowLabel, contextLayer]);
 
   if (indexError) return <InlineError message={indexError} />;
 
@@ -411,15 +578,31 @@ function MapPageInner() {
     >
       <header className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--fg)]">
-          LSOA crime map
+          {(contextLayer ? CONTEXT[contextLayer] : CRIME_HEADING).title}
         </h1>
         <p className="mt-1 text-sm text-[var(--fg-muted)]">
-          Police-recorded offences by Lower Super Output Area
+          {(contextLayer ? CONTEXT[contextLayer] : CRIME_HEADING).subtitle}
         </p>
       </header>
 
       {/* Controls */}
       <div className="flex flex-wrap gap-3 mb-4 items-end">
+        {/* Layer */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-[var(--fg-muted)]" htmlFor="map-layer">Show</label>
+          <select
+            id="map-layer"
+            className={controlClass}
+            value={sel.layer}
+            onChange={(e) => setParam("layer", e.target.value)}
+          >
+            {LAYERS.map((l) => (
+              <option key={l.value} value={l.value}>{l.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {sel.layer === "crime" && (<>
         {/* Crime group */}
         <div className="flex flex-col gap-1 min-w-[180px]">
           <label className="text-xs text-[var(--fg-muted)]" htmlFor="map-group">Crime group</label>
@@ -487,10 +670,16 @@ function MapPageInner() {
             <option value="count">Count</option>
           </select>
         </div>
+        </>)}
       </div>
 
+      {/* Context layer caveat */}
+      {contextLayer && (
+        <p className="mb-4 text-xs text-[var(--fg-muted)]">{CONTEXT[contextLayer].caveat}</p>
+      )}
+
       {/* Coverage gap notice */}
-      {relevantIssues.length > 0 && endMonth && (
+      {sel.layer === "crime" && relevantIssues.length > 0 && endMonth && (
         <CoverageNotice
           issues={issues}
           group={sel.group}
@@ -502,7 +691,7 @@ function MapPageInner() {
       {/* Map + legend */}
       <SectionBoundary>
       <div className="relative">
-        {valuesError && <InlineError message={valuesError} />}
+        {sel.layer === "crime" && valuesError && <InlineError message={valuesError} />}
 
         {/* Map skeleton */}
         {!metaLoaded && (
@@ -515,24 +704,38 @@ function MapPageInner() {
 
         {metaLoaded && (
           <div className="relative">
-            {valuesLoading && (
+            {sel.layer === "crime" && valuesLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-[var(--bg)]/60 pointer-events-none">
                 <span className="text-sm text-[var(--fg-muted)]">Loading…</span>
               </div>
             )}
             <LsoaMap
+              layer={sel.layer}
               values={values}
               dim={dim}
               breaks={classification.breaks}
               lowPopColor={classification.lowPopColor}
               measure={sel.measure}
+              fixed={fixed}
               ariaLabel={ariaLabel}
+              dark={dark}
             />
           </div>
         )}
 
         {/* Legend — absolute on desktop, below on mobile */}
-        {metaLoaded && classification.breaks.length > 0 && (
+        {metaLoaded && contextLayer && fixed && (
+          <div className="mt-3 md:mt-0 md:absolute md:bottom-3 md:left-3 md:max-w-[200px]">
+            <FixedLegend
+              title={CONTEXT[contextLayer].legendTitle}
+              breaks={fixed.breaks}
+              noDataColor={fixed.noDataColor}
+              showNoData={contextInfo?.hasNull ?? false}
+              ends={CONTEXT[contextLayer].legendEnds}
+            />
+          </div>
+        )}
+        {metaLoaded && !contextLayer && classification.breaks.length > 0 && (
           <div className="mt-3 md:mt-0 md:absolute md:bottom-3 md:left-3 md:max-w-[200px]">
             <MapLegend
               breaks={classification.breaks}
@@ -548,8 +751,11 @@ function MapPageInner() {
 
       {/* Top 10 */}
       <SectionBoundary>
-      {values.length > 0 && (
+      {sel.layer === "crime" && values.length > 0 && (
         <Top10 values={values} dim={dim} measure={sel.measure} />
+      )}
+      {contextInfo?.summary && (
+        <p className="mt-6 text-sm text-[var(--fg)]">{contextInfo.summary}</p>
       )}
       </SectionBoundary>
     </main>
