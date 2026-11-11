@@ -38,6 +38,7 @@ type Props = {
   lowPopColor: string;
   measure: "rate" | "count";
   ariaLabel: string;
+  dark: boolean;
 };
 
 const LIGHT_STYLE = "https://tiles.openfreemap.org/styles/positron";
@@ -47,14 +48,6 @@ const LONDON_BOUNDS: [[number, number], [number, number]] = [
   [-0.51, 51.28],
   [0.33, 51.69],
 ];
-
-function isDarkMode(): boolean {
-  if (typeof window === "undefined") return false;
-  const root = document.documentElement;
-  if (root.dataset.theme === "dark") return true;
-  if (root.dataset.theme === "light") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
 
 function applyColors(
   map: MapLibreMap,
@@ -135,7 +128,7 @@ function addDataLayers(map: MapLibreMap, dark: boolean) {
   }
 }
 
-export default function LsoaMap({ values, dim, breaks, lowPopColor, measure, ariaLabel }: Props) {
+export default function LsoaMap({ values, dim, breaks, lowPopColor, measure, ariaLabel, dark }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const valuesRef = useRef(values);
@@ -143,6 +136,9 @@ export default function LsoaMap({ values, dim, breaks, lowPopColor, measure, ari
   const lowPopColorRef = useRef(lowPopColor);
   const measureRef = useRef(measure);
   const dimRef = useRef(dim);
+  const darkRef = useRef(dark);
+  // Theme of the basemap style currently on the map (null until the map exists)
+  const appliedDarkRef = useRef<boolean | null>(null);
   // Cache byCode so the mousemove handler doesn't rebuild it on every event
   const byCodeRef = useRef<Map<string, LsoaValue>>(new Map());
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -152,6 +148,7 @@ export default function LsoaMap({ values, dim, breaks, lowPopColor, measure, ari
   useEffect(() => { lowPopColorRef.current = lowPopColor; }, [lowPopColor]);
   useEffect(() => { measureRef.current = measure; }, [measure]);
   useEffect(() => { dimRef.current = dim; }, [dim]);
+  useEffect(() => { darkRef.current = dark; }, [dark]);
   useEffect(() => {
     byCodeRef.current = new Map(values.map((v) => [v.lsoa21_code, v]));
   }, [values]);
@@ -163,18 +160,33 @@ export default function LsoaMap({ values, dim, breaks, lowPopColor, measure, ari
     applyColors(map, values, breaks, lowPopColor, measure);
   }, [values, breaks, lowPopColor, measure]);
 
+  // Swap the basemap when the theme changes. This runs after the ref effects
+  // above, so breaksRef already holds the breaks for the new palette.
+  // diff: false forces a full rebuild so style.load fires; a diffed swap would
+  // drop our layers without firing it.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || appliedDarkRef.current === null || appliedDarkRef.current === dark) return;
+    appliedDarkRef.current = dark;
+    map.once("style.load", () => {
+      addDataLayers(map, dark);
+      applyColors(map, valuesRef.current, breaksRef.current, lowPopColorRef.current, measureRef.current);
+    });
+    map.setStyle(dark ? DARK_STYLE : LIGHT_STYLE, { diff: false });
+  }, [dark]);
+
   // Create map once
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let cleanupMq: (() => void) | undefined;
     let hoveredId: string | null = null;
-
-    const dark = isDarkMode();
-    const style = dark ? DARK_STYLE : LIGHT_STYLE;
 
     import("maplibre-gl").then((ml) => {
       if (!containerRef.current) return;
+
+      // Read at import time, not mount, in case the theme flipped while loading
+      const dark = darkRef.current;
+      const style = dark ? DARK_STYLE : LIGHT_STYLE;
 
       // Serve the worker from our own origin to avoid Turbopack MIME issues
       ml.setWorkerUrl(
@@ -192,10 +204,11 @@ export default function LsoaMap({ values, dim, breaks, lowPopColor, measure, ari
       });
 
       mapRef.current = map;
+      appliedDarkRef.current = dark;
       map.addControl(new NavigationControl({ showCompass: false }), "top-right");
 
       map.on("load", () => {
-        addDataLayers(map, dark);
+        addDataLayers(map, appliedDarkRef.current ?? dark);
         applyColors(map, valuesRef.current, breaksRef.current, lowPopColorRef.current, measureRef.current);
 
         map.on("mousemove", "lsoa-fill", (e) => {
@@ -234,26 +247,13 @@ export default function LsoaMap({ values, dim, breaks, lowPopColor, measure, ari
           setTooltip(null);
         });
       });
-
-      // Dark mode changes — setStyle() wipes sources and layers, so re-add them
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleColorSchemeChange = () => {
-        const nowDark = isDarkMode();
-        map.setStyle(nowDark ? DARK_STYLE : LIGHT_STYLE);
-        map.once("style.load", () => {
-          addDataLayers(map, nowDark);
-          applyColors(map, valuesRef.current, breaksRef.current, lowPopColorRef.current, measureRef.current);
-        });
-      };
-      mq.addEventListener("change", handleColorSchemeChange);
-      cleanupMq = () => mq.removeEventListener("change", handleColorSchemeChange);
     });
 
     return () => {
-      cleanupMq?.();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+        appliedDarkRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

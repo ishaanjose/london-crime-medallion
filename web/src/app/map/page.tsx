@@ -138,6 +138,39 @@ function useMapSelection(availableMonths: string[]): [MapSelection, (k: keyof Ma
   return [sel, setParam];
 }
 
+// ---- Theme hook -------------------------------------------------------------
+
+function readIsDark(): boolean {
+  if (typeof window === "undefined") return false;
+  const theme = document.documentElement.dataset.theme;
+  if (theme === "dark") return true;
+  if (theme === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+// Tracks the effective theme: an explicit data-theme on <html> wins, else the OS preference.
+function useIsDark(): boolean {
+  const [dark, setDark] = useState(readIsDark);
+
+  useEffect(() => {
+    const update = () => setDark(readIsDark());
+    update();
+
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", update);
+
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    return () => {
+      mq.removeEventListener("change", update);
+      observer.disconnect();
+    };
+  }, []);
+
+  return dark;
+}
+
 // ---- Skeleton & Error -------------------------------------------------------
 
 function Skeleton({ className }: { className?: string }) {
@@ -288,10 +321,7 @@ function MapPageInner() {
 
   const [sel, setParam] = useMapSelection(availableMonths);
 
-  const dark = typeof window !== "undefined" && (
-    document.documentElement.dataset.theme === "dark" ||
-    (document.documentElement.dataset.theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)
-  );
+  const dark = useIsDark();
 
   // Load metadata once
   useEffect(() => {
@@ -527,6 +557,7 @@ function MapPageInner() {
               lowPopColor={classification.lowPopColor}
               measure={sel.measure}
               ariaLabel={ariaLabel}
+              dark={dark}
             />
           </div>
         )}
