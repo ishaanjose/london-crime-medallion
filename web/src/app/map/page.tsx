@@ -13,6 +13,7 @@ import LsoaMap, {
 } from "@/components/LsoaMap";
 import MapLegend, { FixedLegend } from "@/components/MapLegend";
 import SectionBoundary from "@/components/SectionBoundary";
+import BinnedRateChart from "@/components/place/BinnedRateChart";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 // ---- Types ----------------------------------------------------------------
@@ -748,6 +749,16 @@ function MapPageInner() {
         )}
       </div>
       </SectionBoundary>
+
+      {/* Crime rate by band of the context layer; the chart has its own SectionBoundary */}
+      {contextLayer && (
+        <div className="mt-6">
+          <p className="mb-2 text-sm text-[var(--fg-muted)]">
+            Crime rate by band of the layer above (all crime excl. ASB, 12 months).
+          </p>
+          <BinnedRateChart factor={contextLayer} compact />
+        </div>
+      )}
 
       {/* Top 10 */}
       <SectionBoundary>
