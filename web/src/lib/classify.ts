@@ -178,6 +178,16 @@ export const IMD_PRESET: FixedPreset = {
   ],
 };
 
+// Income deprivation deciles: same scale and direction as IMD.
+export const INCOME_PRESET: FixedPreset = {
+  edges: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  reverse: true,
+  labels: [
+    "1 (most deprived)", "2", "3", "4", "5", "6", "7", "8", "9",
+    "10 (least deprived)",
+  ],
+};
+
 // Distance to nearest station, metres. 7 classes: ≤250 … >2,000.
 export const STATION_PRESET: FixedPreset = {
   edges: [250, 500, 750, 1000, 1500, 2000],

@@ -6,7 +6,7 @@ import { loadIndex, type ExportIndex } from "@/lib/data";
 import { parquet, parquetYears, query } from "@/lib/query";
 import { formatMonth } from "@/lib/format";
 import {
-  classify, fixedClasses, IMD_PRESET, STATION_PRESET, PARK_PRESET, type FixedPreset,
+  classify, fixedClasses, IMD_PRESET, INCOME_PRESET, STATION_PRESET, PARK_PRESET, type FixedPreset,
 } from "@/lib/classify";
 import LsoaMap, {
   contextValue, type LsoaValue, type DimRow, type MapLayer, type ContextLayer,
@@ -49,6 +49,7 @@ const DIM_COLUMNS = [
 const LAYERS: { value: MapLayer; label: string }[] = [
   { value: "crime", label: "Crime" },
   { value: "imd", label: "Deprivation (IMD 2025)" },
+  { value: "income", label: "Income deprivation (2025)" },
   { value: "station", label: "Distance to station" },
   { value: "park", label: "Park space nearby" },
 ];
@@ -76,6 +77,14 @@ const CONTEXT: Record<ContextLayer, {
     ariaLabel: "LSOA map: Index of Multiple Deprivation 2025 decile",
     caveat: "IMD 2025 overall deprivation. Includes a crime domain, so compare with crime carefully.",
   },
+  income: {
+    title: "LSOA income deprivation map",
+    subtitle: "Income Deprivation Domain 2025 decile by Lower Super Output Area",
+    preset: INCOME_PRESET,
+    legendTitle: "Income deprivation 2025 decile",
+    ariaLabel: "LSOA map: Income Deprivation Domain 2025 decile",
+    caveat: "Share of residents on low-income benefits, ranked against all of England. Unlike the overall IMD it has no crime domain, so it is the cleaner comparison with crime.",
+  },
   station: {
     title: "LSOA station access map",
     subtitle: "Distance to the nearest station by Lower Super Output Area",
@@ -97,7 +106,7 @@ const CONTEXT: Record<ContextLayer, {
 };
 
 function isMapLayer(v: string | null): v is MapLayer {
-  return v === "crime" || v === "imd" || v === "station" || v === "park";
+  return v === "crime" || v === "imd" || v === "income" || v === "station" || v === "park";
 }
 
 function median(xs: number[]): number {
@@ -121,6 +130,11 @@ function contextSummary(layer: ContextLayer, dim: Map<string, DimRow>): string |
       const k = vals.filter((v) => v <= 3).length;
       const pct = ((k / n) * 100).toLocaleString("en-GB", { maximumFractionDigits: 0 });
       return `${pct}% of London LSOAs (${fmtInt(k)} of ${fmtInt(n)}) are in IMD deciles 1 to 3, the most deprived 30% in England.`;
+    }
+    case "income": {
+      const k = vals.filter((v) => v <= 3).length;
+      const pct = ((k / n) * 100).toLocaleString("en-GB", { maximumFractionDigits: 0 });
+      return `${pct}% of London LSOAs (${fmtInt(k)} of ${fmtInt(n)}) are in income deciles 1 to 3, the most income-deprived 30% in England.`;
     }
     case "station": {
       const k = vals.filter((v) => v > 1500).length;

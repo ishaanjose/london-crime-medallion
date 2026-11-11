@@ -29,13 +29,14 @@ export type DimRow = {
   park_ha_within_1km: number | null;
 };
 
-export type MapLayer = "crime" | "imd" | "station" | "park";
+export type MapLayer = "crime" | "imd" | "income" | "station" | "park";
 export type ContextLayer = Exclude<MapLayer, "crime">;
 
 // The per-LSOA value a context layer is coloured by.
 export function contextValue(d: DimRow, layer: ContextLayer): number | null {
   switch (layer) {
     case "imd": return d.imd_decile_2025;
+    case "income": return d.income_decile_2025;
     case "station": return d.nearest_station_m;
     case "park": return d.park_ha_within_1km;
   }
@@ -338,6 +339,14 @@ function TooltipBody({ t, layer, measure }: { t: TooltipState; layer: MapLayer; 
           <p className={main}>IMD decile {d.imd_decile_2025}</p>
           {d.income_decile_2025 != null && <p className={sub}>Income decile {d.income_decile_2025}</p>}
           {d.employment_decile_2025 != null && <p className={sub}>Employment decile {d.employment_decile_2025}</p>}
+        </>
+      );
+    case "income":
+      if (d.income_decile_2025 == null) return noData;
+      return (
+        <>
+          <p className={main}>Income decile {d.income_decile_2025}</p>
+          {d.imd_decile_2025 != null && <p className={sub}>IMD decile {d.imd_decile_2025}</p>}
         </>
       );
     case "station":
