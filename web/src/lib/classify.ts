@@ -168,8 +168,9 @@ export function classifyFixed(
 
 export type FixedPreset = { edges: number[] } & FixedClassOptions;
 
-// IMD deciles: integer 1–10, decile 1 = most deprived, so reversed.
-export const IMD_PRESET: FixedPreset = {
+// IoD 2025 deciles (overall IMD and its domains): integer 1–10, decile 1 =
+// most deprived, so reversed.
+const DECILE_PRESET: FixedPreset = {
   edges: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   reverse: true,
   labels: [
@@ -177,21 +178,22 @@ export const IMD_PRESET: FixedPreset = {
     "10 (least deprived)",
   ],
 };
-
-// Income deprivation deciles: same scale and direction as IMD.
-export const INCOME_PRESET: FixedPreset = {
-  edges: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-  reverse: true,
-  labels: [
-    "1 (most deprived)", "2", "3", "4", "5", "6", "7", "8", "9",
-    "10 (least deprived)",
-  ],
-};
+export const IMD_PRESET = DECILE_PRESET;
+export const INCOME_PRESET = DECILE_PRESET;
+export const EMPLOYMENT_PRESET = DECILE_PRESET;
 
 // Distance to nearest station, metres. 7 classes: ≤250 … >2,000.
 export const STATION_PRESET: FixedPreset = {
   edges: [250, 500, 750, 1000, 1500, 2000],
   labels: defaultLabels([250, 500, 750, 1000, 1500, 2000], "upper", "m"),
+};
+
+// Distance to nearest park entrance, metres. 5 classes: ≤100 … >750.
+// Farther is worse, as with stations, so not reversed.
+export const PARK_DISTANCE_PRESET: FixedPreset = {
+  edges: [100, 250, 500, 750],
+  closed: "upper",
+  labels: defaultLabels([100, 250, 500, 750], "upper", "m"),
 };
 
 // Nearby park area, hectares. 6 classes: <5 … 80+. Small is worse, so reversed.

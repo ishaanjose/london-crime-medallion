@@ -6,13 +6,14 @@ import { loadIndex, type ExportIndex } from "@/lib/data";
 import { parquet, parquetYears, query } from "@/lib/query";
 import { formatMonth } from "@/lib/format";
 import {
-  classify, fixedClasses, IMD_PRESET, INCOME_PRESET, STATION_PRESET, PARK_PRESET, type FixedPreset,
+  classify, fixedClasses, IMD_PRESET, INCOME_PRESET, STATION_PRESET, PARK_DISTANCE_PRESET, PARK_PRESET, type FixedPreset,
 } from "@/lib/classify";
 import LsoaMap, {
   contextValue, type LsoaValue, type DimRow, type MapLayer, type ContextLayer,
 } from "@/components/LsoaMap";
 import MapLegend, { FixedLegend } from "@/components/MapLegend";
 import SectionBoundary from "@/components/SectionBoundary";
+import BinnedRateChart from "@/components/place/BinnedRateChart";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 // ---- Types ----------------------------------------------------------------
@@ -52,6 +53,7 @@ const LAYERS: { value: MapLayer; label: string }[] = [
   { value: "income", label: "Income deprivation (2025)" },
   { value: "station", label: "Distance to station" },
   { value: "park", label: "Park space nearby" },
+  { value: "parkdist", label: "Distance to park" },
 ];
 
 const CRIME_HEADING = {
@@ -94,6 +96,15 @@ const CONTEXT: Record<ContextLayer, {
     ariaLabel: "LSOA map: straight-line distance to nearest station",
     caveat: "TfL plus National Rail stations, straight-line distance from the population-weighted centre.",
   },
+  parkdist: {
+    title: "LSOA park distance map",
+    subtitle: "Distance to the nearest park entrance by Lower Super Output Area",
+    preset: PARK_DISTANCE_PRESET,
+    legendTitle: "Distance to nearest park entrance",
+    legendEnds: { first: "Better", last: "Worse" },
+    ariaLabel: "LSOA map: straight-line distance to nearest park entrance",
+    caveat: "Straight-line distance from the population-weighted centre to the nearest public park, garden or playing field entrance. Car-park-only access is excluded.",
+  },
   park: {
     title: "LSOA park access map",
     subtitle: "Public park area within 1 km by Lower Super Output Area",
@@ -106,7 +117,7 @@ const CONTEXT: Record<ContextLayer, {
 };
 
 function isMapLayer(v: string | null): v is MapLayer {
-  return v === "crime" || v === "imd" || v === "income" || v === "station" || v === "park";
+  return v === "crime" || v === "imd" || v === "income" || v === "station" || v === "parkdist" || v === "park";
 }
 
 function median(xs: number[]): number {
@@ -139,6 +150,10 @@ function contextSummary(layer: ContextLayer, dim: Map<string, DimRow>): string |
     case "station": {
       const k = vals.filter((v) => v > 1500).length;
       return `Median distance to the nearest station is ${fmtInt(median(vals))} m. ${fmtInt(k)} of ${fmtInt(n)} LSOAs are more than 1,500 m from one.`;
+    }
+    case "parkdist": {
+      const k = vals.filter((v) => v > 500).length;
+      return `Median distance to the nearest park entrance is ${fmtInt(median(vals))} m. ${fmtInt(k)} of ${fmtInt(n)} LSOAs are more than 500 m from one.`;
     }
     case "park": {
       const med = median(vals).toLocaleString("en-GB", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -748,6 +763,16 @@ function MapPageInner() {
         )}
       </div>
       </SectionBoundary>
+
+      {/* Crime rate by band of the context layer; the chart has its own SectionBoundary */}
+      {contextLayer && (
+        <div className="mt-6">
+          <p className="mb-2 text-sm text-[var(--fg-muted)]">
+            Crime rate by band of the layer above (12 months; excludes ASB and crime groups with a police.uk coverage gap).
+          </p>
+          <BinnedRateChart factor={contextLayer} compact />
+        </div>
+      )}
 
       {/* Top 10 */}
       <SectionBoundary>
