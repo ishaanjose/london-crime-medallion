@@ -1,26 +1,75 @@
 @import "tailwindcss";
 
+/* Layout: full-bleed dashboard, max-w-5xl page column, 32px section gap */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Page */
+  --bg:        #ffffff;
+  --fg:        #0f172a;
+  --fg-muted:  #4b5563;
+  --surface:   #f9fafb;
+  --border:    #e2e8f0;
+  --skeleton:  #e5e7eb;
+
+  /* Chart series */
+  --chart-1:   #2563eb;
+  --chart-2:   #7c3aed;
+  --chart-fill: rgba(37, 99, 235, 0.08);
+  --chart-grid: #f1f5f9;
+  --chart-axis: #94a3b8;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        #0d1117;
+    --fg:        #e6edf3;
+    --fg-muted:  #8b949e;
+    --surface:   #161b22;
+    --border:    #21262d;
+    --skeleton:  #21262d;
+    --chart-1:   #58a6ff;
+    --chart-2:   #bc8cff;
+    --chart-fill: rgba(88, 166, 255, 0.10);
+    --chart-grid: #1c2128;
+    --chart-axis: #6e7681;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg:        #0d1117;
+  --fg:        #e6edf3;
+  --fg-muted:  #8b949e;
+  --surface:   #161b22;
+  --border:    #21262d;
+  --skeleton:  #21262d;
+  --chart-1:   #58a6ff;
+  --chart-2:   #bc8cff;
+  --chart-fill: rgba(88, 166, 255, 0.10);
+  --chart-grid: #1c2128;
+  --chart-axis: #6e7681;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Visible focus ring for keyboard nav */
+:focus-visible {
+  outline: 2px solid var(--chart-1);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
