@@ -10,6 +10,7 @@ export function parquet(index: ExportIndex, name: string): string {
 
 function convertBigInt(value: unknown): unknown {
   if (typeof value === "bigint") return Number(value);
+  if (value instanceof Date) return value;
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).map(([k, v]) => [

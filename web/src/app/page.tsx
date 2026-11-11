@@ -2,6 +2,7 @@
 
 import { useQuery } from "@/lib/useQuery";
 import { parquet } from "@/lib/query";
+import { formatMonth } from "@/lib/format";
 import KpiCard from "@/components/KpiCard";
 import TrendChart from "@/components/TrendChart";
 import CrimeGroupBars from "@/components/CrimeGroupBars";
@@ -15,6 +16,16 @@ type KpiRow = {
   asb_prev: number | null;
   rate_12m: number;
   rate_12m_prev: number | null;
+  pop_cur: number | null;
+  pop_prev: number | null;
+};
+
+type LflRow = {
+  excluded_groups: string | null;
+  cur_month: number | null;
+  prev_month: number | null;
+  cur_12m: number | null;
+  prev_12m: number | null;
 };
 
 type ChargeRow = {
@@ -55,7 +66,9 @@ export default function Home() {
         cur.asb_count::double          as asb,
         prev.asb_count::double         as asb_prev,
         cur.crimes_per_1000_12m        as rate_12m,
-        prev.crimes_per_1000_12m       as rate_12m_prev
+        prev.crimes_per_1000_12m       as rate_12m_prev,
+        cur.population::double         as pop_cur,
+        prev.population::double        as pop_prev
       from l as cur
       left join l as prev
         on prev.month = (cur.month - interval 12 month)::date
@@ -90,10 +103,40 @@ export default function Home() {
     `;
   });
 
+  const lfl = useQuery<LflRow>((index) => {
+    const CBM = parquet(index, "fct_police_uk_crimes_borough_month");
+    const KI = parquet(index, "rpt_known_issues");
+    return `
+      with b as (
+          select month, crime_group, sum(crime_count)::double as n
+          from ${CBM}
+          where crime_group <> 'Anti-social behaviour'
+          group by all
+      ),
+      mx as (select max(month) as m from b),
+      excluded as (
+          select distinct scope as crime_group
+          from ${KI}, mx
+          where issue_type = 'coverage gap'
+            and start_month <= m
+            and coalesce(end_month, date '9999-12-01') > (m - interval 24 month)::date
+      ),
+      kept as (select * from b where crime_group not in (select crime_group from excluded))
+      select
+          (select string_agg(crime_group, ', ') from excluded) as excluded_groups,
+          sum(n) filter (where month = m) as cur_month,
+          sum(n) filter (where month = (m - interval 12 month)::date) as prev_month,
+          sum(n) filter (where month > m - interval 12 month) as cur_12m,
+          sum(n) filter (where month <= m - interval 12 month and month > m - interval 24 month) as prev_12m
+      from kept, mx
+    `;
+  });
+
   const kpiRow = kpi.data?.[0];
   const chargeRow = charge.data?.[0];
-  const kpiLoading = kpi.loading || charge.loading;
-  const kpiError = kpi.error ?? charge.error;
+  const lflRow = lfl.data?.[0];
+  const kpiLoading = kpi.loading || charge.loading || lfl.loading;
+  const kpiError = kpi.error ?? charge.error ?? lfl.error;
 
   return (
     <main
@@ -133,8 +176,17 @@ export default function Home() {
                   value={kpiRow.crimes.toLocaleString("en-GB", {
                     maximumFractionDigits: 0,
                   })}
-                  sublabel={kpiRow.month}
-                  change={change(kpiRow.crimes, kpiRow.crimes_prev)}
+                  sublabel={formatMonth(kpiRow.month)}
+                  change={
+                    lflRow?.cur_month != null && lflRow?.prev_month != null && lflRow.prev_month > 0
+                      ? lflRow.cur_month / lflRow.prev_month - 1
+                      : change(kpiRow.crimes, kpiRow.crimes_prev)
+                  }
+                  note={
+                    lflRow?.excluded_groups
+                      ? `Change excludes ${lflRow.excluded_groups.toLowerCase()} (police.uk coverage gap)`
+                      : undefined
+                  }
                 />
                 <KpiCard
                   label="ASB (latest month)"
@@ -149,7 +201,17 @@ export default function Home() {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1,
                   })}
-                  change={change(kpiRow.rate_12m, kpiRow.rate_12m_prev)}
+                  change={
+                    lflRow?.cur_12m != null && lflRow?.prev_12m != null &&
+                    lflRow.prev_12m > 0 && kpiRow.pop_cur != null && kpiRow.pop_prev != null && kpiRow.pop_prev > 0
+                      ? (lflRow.cur_12m / kpiRow.pop_cur) / (lflRow.prev_12m / kpiRow.pop_prev) - 1
+                      : change(kpiRow.rate_12m, kpiRow.rate_12m_prev)
+                  }
+                  note={
+                    lflRow?.excluded_groups
+                      ? `Change excludes ${lflRow.excluded_groups.toLowerCase()} (police.uk coverage gap)`
+                      : undefined
+                  }
                 />
                 {chargeRow ? (
                   <KpiCard

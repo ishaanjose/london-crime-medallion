@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
 import { useQuery } from "@/lib/useQuery";
 import { parquet } from "@/lib/query";
+import { formatMonth } from "@/lib/format";
 
 type CrimeGroupRow = {
   crime_group: string;
   last_12m: number;
   prior_12m: number;
+  excluded: boolean;
+  gap_description: string | null;
+  gap_start: string | null;
 };
 
 function Skeleton() {
@@ -28,6 +31,7 @@ function Skeleton() {
 export default function CrimeGroupBars() {
   const { data, error, loading } = useQuery<CrimeGroupRow>((index) => {
     const CBM = parquet(index, "fct_police_uk_crimes_borough_month");
+    const KI = parquet(index, "rpt_known_issues");
     return `
       with b as (
         select
@@ -38,24 +42,35 @@ export default function CrimeGroupBars() {
         where crime_group is distinct from 'Anti-social behaviour'
         group by all
       ),
-      mx as (select max(month) as m from b)
+      mx as (select max(month) as m from b),
+      excluded as (
+        select distinct scope as crime_group, description, start_month::varchar as gap_start
+        from ${KI}, mx
+        where issue_type = 'coverage gap'
+          and start_month <= m
+          and coalesce(end_month, date '9999-12-01') > (m - interval 24 month)::date
+      ),
+      agg as (
+        select
+          b.crime_group,
+          sum(n) filter (where month > m - interval 12 month) as last_12m,
+          sum(n) filter (where month <= m - interval 12 month
+                         and month > m - interval 24 month)   as prior_12m
+        from b, mx
+        group by b.crime_group
+      )
       select
-        crime_group,
-        sum(n) filter (where month > m - interval 12 month) as last_12m,
-        sum(n) filter (where month <= m - interval 12 month
-                       and month > m - interval 24 month)   as prior_12m
-      from b, mx
-      group by crime_group
+        a.crime_group,
+        a.last_12m,
+        a.prior_12m,
+        (e.crime_group is not null) as excluded,
+        e.description as gap_description,
+        e.gap_start
+      from agg a
+      left join excluded e on e.crime_group = a.crime_group
       order by last_12m desc
     `;
   });
-
-  useEffect(() => {
-    if (data) {
-      const total = data.reduce((s, r) => s + r.last_12m, 0);
-      console.log("[CrimeGroupBars] sum of last_12m:", total);
-    }
-  }, [data]);
 
   if (loading) return <Skeleton />;
   if (error)
@@ -68,13 +83,19 @@ export default function CrimeGroupBars() {
 
   const max = Math.max(...data.map((r) => r.last_12m));
 
-  // Column header labels (screen-only, not visible in bars)
   const colClass = "text-xs text-[var(--fg-muted)]";
+
+  type GapNote = { crime_group: string; gap_start: string; gap_description: string };
+  const gapNotes: GapNote[] = data
+    .filter((r): r is typeof r & { gap_start: string; gap_description: string } =>
+      r.excluded && r.gap_start != null && r.gap_description != null
+    )
+    .map((r) => ({ crime_group: r.crime_group, gap_start: r.gap_start, gap_description: r.gap_description }));
 
   return (
     <div>
-      {/* Column headers */}
-      <div className="flex items-center gap-3 mb-1 pb-1 border-b border-[var(--border)]">
+      {/* Column headers — hidden on mobile, shown from sm up */}
+      <div className="hidden sm:flex items-center gap-3 mb-1 pb-1 border-b border-[var(--border)]">
         <div className="w-44 shrink-0" />
         <div className="flex-1" />
         <div className={`w-20 shrink-0 text-right ${colClass}`}>Last 12m</div>
@@ -84,41 +105,54 @@ export default function CrimeGroupBars() {
       <div
         role="img"
         aria-label="Horizontal bars: crime counts by group over the last 12 months, sorted by volume"
-        className="space-y-1.5"
+        className="space-y-3 sm:space-y-1.5"
       >
         {data.map((row) => {
           const change =
-            row.prior_12m > 0
+            !row.excluded && row.prior_12m > 0
               ? (row.last_12m - row.prior_12m) / row.prior_12m
               : null;
-          const changeText =
-            change !== null
+          const changeText = row.excluded
+            ? "coverage gap"
+            : change !== null
               ? `${change >= 0 ? "+" : ""}${(change * 100).toFixed(1)}%`
               : "—";
           const pct = max > 0 ? (row.last_12m / max) * 100 : 0;
 
           return (
-            <div key={row.crime_group} className="flex items-center gap-3">
-              <div className="w-44 shrink-0 text-xs text-right text-[var(--fg-muted)] truncate">
+            <div key={row.crime_group}>
+              {/* Mobile: label on its own line */}
+              <div className="sm:hidden text-xs text-[var(--fg-muted)] mb-0.5">
                 {row.crime_group}
               </div>
-              <div className="flex-1 relative h-5">
+
+              {/* Row: bar + count + change. On mobile, no fixed label column. */}
+              <div className="flex items-center gap-3">
+                {/* Desktop label */}
+                <div className="hidden sm:block w-44 shrink-0 text-xs text-right text-[var(--fg-muted)] truncate">
+                  {row.crime_group}
+                </div>
+                <div className="flex-1 relative h-5">
+                  <div
+                    className="absolute inset-y-1 left-0 rounded-sm"
+                    style={{
+                      width: `${pct}%`,
+                      background: "var(--chart-1)",
+                      opacity: 0.35,
+                    }}
+                  />
+                </div>
+                <div className="w-20 shrink-0 tabular-nums text-xs text-right text-[var(--fg)]">
+                  {row.last_12m.toLocaleString("en-GB", {
+                    maximumFractionDigits: 0,
+                  })}
+                </div>
                 <div
-                  className="absolute inset-y-1 left-0 rounded-sm"
-                  style={{
-                    width: `${pct}%`,
-                    background: "var(--chart-1)",
-                    opacity: 0.35,
-                  }}
-                />
-              </div>
-              <div className="w-20 shrink-0 tabular-nums text-xs text-right text-[var(--fg)]">
-                {row.last_12m.toLocaleString("en-GB", {
-                  maximumFractionDigits: 0,
-                })}
-              </div>
-              <div className="w-14 shrink-0 tabular-nums text-xs text-right text-[var(--fg-muted)]">
-                {changeText}
+                  className={`w-14 shrink-0 tabular-nums text-xs text-right ${row.excluded ? "text-[var(--fg-muted)] italic" : "text-[var(--fg-muted)]"}`}
+                  title={row.excluded && row.gap_description ? row.gap_description : undefined}
+                >
+                  {changeText}
+                </div>
               </div>
             </div>
           );
@@ -129,6 +163,11 @@ export default function CrimeGroupBars() {
         Anti-social behaviour is excluded; it is counted separately in the KPIs
         above.
       </p>
+      {gapNotes.map((n) => (
+        <p key={n.crime_group} className="mt-1 text-xs text-[var(--fg-muted)]">
+          {n.crime_group}: police.uk coverage gap from {formatMonth(n.gap_start)}, year-on-year change not shown.
+        </p>
+      ))}
     </div>
   );
 }

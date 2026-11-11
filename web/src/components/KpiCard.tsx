@@ -6,6 +6,7 @@ type KpiCardProps =
       value: string;
       sublabel?: string;
       change?: number; // fraction, e.g. 0.042 → +4.2%
+      note?: string;
     };
 
 function Skeleton({ className }: { className: string }) {
@@ -31,7 +32,7 @@ export default function KpiCard(props: KpiCardProps) {
     );
   }
 
-  const { label, value, sublabel, change } = props;
+  const { label, value, sublabel, change, note } = props;
   const changeText =
     change !== undefined
       ? `${change >= 0 ? "+" : ""}${(change * 100).toFixed(1)}% vs last year`
@@ -40,12 +41,15 @@ export default function KpiCard(props: KpiCardProps) {
   return (
     <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-4 flex flex-col h-full">
       <p className="text-xs text-[var(--fg-muted)] mb-1 leading-none">{label}</p>
-      <p className="text-2xl font-semibold tabular-nums mt-auto">{value}</p>
+      <p className="text-2xl font-semibold tabular-nums">{value}</p>
       {changeText && (
         <p className="text-xs text-[var(--fg-muted)] mt-1 tabular-nums">{changeText}</p>
       )}
       {sublabel && (
         <p className="text-xs text-[var(--fg-muted)] mt-1">{sublabel}</p>
+      )}
+      {note && (
+        <p className="text-xs text-[var(--fg-muted)] mt-auto pt-2 italic">{note}</p>
       )}
     </div>
   );
