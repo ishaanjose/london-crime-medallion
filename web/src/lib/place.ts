@@ -1,11 +1,11 @@
 import type { ExportIndex } from "@/lib/data";
 import { parquet, parquetYears } from "@/lib/query";
 import {
-  IMD_PRESET, INCOME_PRESET, EMPLOYMENT_PRESET, STATION_PRESET, PARK_PRESET,
+  IMD_PRESET, INCOME_PRESET, EMPLOYMENT_PRESET, STATION_PRESET, PARK_DISTANCE_PRESET, PARK_PRESET,
   type FixedPreset,
 } from "@/lib/classify";
 
-export type Factor = "income" | "employment" | "imd" | "station" | "park";
+export type Factor = "income" | "employment" | "imd" | "station" | "parkdist" | "park";
 
 export type FactorConfig = {
   column: string;
@@ -44,6 +44,13 @@ export const FACTORS: Record<Factor, FactorConfig> = {
     axisLabel: "Distance to nearest station",
     firstBand: "within 250 m of a station",
     lastBand: "more than 2,000 m from one",
+  },
+  parkdist: {
+    column: "nearest_park_entrance_m",
+    preset: PARK_DISTANCE_PRESET,
+    axisLabel: "Distance to nearest park entrance",
+    firstBand: "within 100 m of a park entrance",
+    lastBand: "more than 750 m from one",
   },
   park: {
     column: "park_ha_within_1km",
@@ -121,6 +128,7 @@ export type LsoaFactorRow = {
   income_decile_2025: number | null;
   employment_decile_2025: number | null;
   nearest_station_m: number | null;
+  nearest_park_entrance_m: number | null;
   park_ha_within_1km: number | null;
 };
 

@@ -31,10 +31,20 @@ const SECTIONS: Section[] = [
       "Being near a station partly just means being in central London, where residents are outnumbered by commuters, shoppers and visitors. Rates per resident are inflated there.",
   },
   {
+    factor: "parkdist",
+    title: "Park distance",
+    intro:
+      "Straight-line distance from each LSOA’s population-weighted centre to its nearest public park, garden or playing field entrance.",
+    note:
+      "A park nearby also tracks urban density, so this is an association, not an effect of the park itself.",
+  },
+  {
     factor: "park",
     title: "Park area",
     intro:
       "Hectares of public park, garden and playing field within 1 km of each LSOA's population-weighted centre.",
+    note:
+      "The amount of park within 1 km shows no clear relationship. Closeness matters here, not size.",
   },
   {
     factor: "imd",
@@ -49,7 +59,7 @@ const CAVEATS = [
   "Correlation is not causation. These charts show where crime rates are higher, not why.",
   "The IMD includes a crime domain, so income and employment are the cleaner comparison.",
   "Station proximity partly means “central London”, and per-resident rates are inflated where visitors outnumber residents.",
-  "Park area shows no clear relationship. That is a result, not a gap in the data.",
+  "Distance to the nearest park shows a weak relationship; the amount of park nearby shows none.",
 ];
 
 export default function PlacePage() {
