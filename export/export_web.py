@@ -28,6 +28,7 @@ EXPORTS = [
     {"name": "fct_police_uk_lsoa_month", "table": "main_gold.fct_police_uk_lsoa_month", "partition": "year"},
     {"name": "fct_police_uk_point_month", "table": "main_gold.fct_police_uk_point_month", "partition": "month"},
     {"name": "fct_police_uk_borough_month", "table": "main_gold.fct_police_uk_borough_month", "partition": None},
+    {"name": "fct_police_uk_crimes_borough_month", "table": "main_gold.fct_police_uk_crimes_borough_month", "partition": None},
     {"name": "fct_police_uk_london_month", "table": "main_gold.fct_police_uk_london_month", "partition": None},
     {"name": "fct_police_uk_charge_rates", "table": "main_gold.fct_police_uk_charge_rates", "partition": None},
     {"name": "fct_police_uk_outcome_mix", "table": "main_gold.fct_police_uk_outcome_mix", "partition": None},
