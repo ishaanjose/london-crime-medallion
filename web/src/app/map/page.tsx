@@ -768,7 +768,7 @@ function MapPageInner() {
       {contextLayer && (
         <div className="mt-6">
           <p className="mb-2 text-sm text-[var(--fg-muted)]">
-            Crime rate by band of the layer above (12 months; excludes ASB and groups with a police.uk coverage gap).
+            Crime rate by band of the layer above (12 months; excludes ASB and crime groups with a police.uk coverage gap).
           </p>
           <BinnedRateChart factor={contextLayer} compact />
         </div>
