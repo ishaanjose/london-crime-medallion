@@ -7,6 +7,7 @@ import KpiCard from "@/components/KpiCard";
 import TrendChart from "@/components/TrendChart";
 import CrimeGroupBars from "@/components/CrimeGroupBars";
 import DataStamp from "@/components/DataStamp";
+import SectionBoundary from "@/components/SectionBoundary";
 
 type KpiRow = {
   month: string;
@@ -159,6 +160,7 @@ export default function Home() {
       {/* KPI row */}
       <section className="mb-10" aria-label="Key figures">
         <SectionHeader>Summary</SectionHeader>
+        <SectionBoundary>
         {kpiError && <InlineError message={kpiError} />}
         {!kpiError && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-stretch">
@@ -226,18 +228,19 @@ export default function Home() {
             )}
           </div>
         )}
+        </SectionBoundary>
       </section>
 
       {/* Trend */}
       <section className="mb-10" aria-label="Monthly trend">
         <SectionHeader>Monthly trend</SectionHeader>
-        <TrendChart />
+        <SectionBoundary><TrendChart /></SectionBoundary>
       </section>
 
       {/* Crime groups */}
       <section className="mb-10" aria-label="Crimes by group">
         <SectionHeader>Crimes by group · last 12 months</SectionHeader>
-        <CrimeGroupBars />
+        <SectionBoundary><CrimeGroupBars /></SectionBoundary>
       </section>
 
       <DataStamp />
