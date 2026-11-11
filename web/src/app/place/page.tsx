@@ -1,4 +1,5 @@
 import BinnedRateChart from "@/components/place/BinnedRateChart";
+import DataStamp from "@/components/DataStamp";
 import type { Factor } from "@/lib/place";
 
 type Section = {
@@ -96,6 +97,8 @@ export default function PlacePage() {
           <BinnedRateChart factor={factor} />
         </section>
       ))}
+
+      <DataStamp />
     </main>
   );
 }
