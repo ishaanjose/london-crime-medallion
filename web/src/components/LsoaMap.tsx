@@ -29,7 +29,7 @@ export type DimRow = {
   park_ha_within_1km: number | null;
 };
 
-export type MapLayer = "crime" | "imd" | "income" | "station" | "park";
+export type MapLayer = "crime" | "imd" | "income" | "station" | "parkdist" | "park";
 export type ContextLayer = Exclude<MapLayer, "crime">;
 
 // The per-LSOA value a context layer is coloured by.
@@ -38,6 +38,7 @@ export function contextValue(d: DimRow, layer: ContextLayer): number | null {
     case "imd": return d.imd_decile_2025;
     case "income": return d.income_decile_2025;
     case "station": return d.nearest_station_m;
+    case "parkdist": return d.nearest_park_entrance_m;
     case "park": return d.park_ha_within_1km;
   }
 }
@@ -361,6 +362,15 @@ function TooltipBody({ t, layer, measure }: { t: TooltipState; layer: MapLayer; 
             </p>
           )}
           {d.stations_within_1km != null && <p className={sub}>{fmtInt(d.stations_within_1km)} within 1 km</p>}
+        </>
+      );
+    case "parkdist":
+      if (d.nearest_park_entrance_m == null) return noData;
+      return (
+        <>
+          <p className={main}>{fmtInt(d.nearest_park_entrance_m)} m to nearest park entrance</p>
+          {d.nearest_park_name && <p className={sub}>Nearest: {d.nearest_park_name}</p>}
+          {d.park_ha_within_1km != null && <p className={sub}>{fmt1(d.park_ha_within_1km)} ha of park within 1 km</p>}
         </>
       );
     case "park":
