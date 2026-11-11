@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/", label: "Overview" },
   { href: "/map", label: "Map" },
+  { href: "/trust", label: "Data trust" },
 ];
 
 export default function AppNav() {
