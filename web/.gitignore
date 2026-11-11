@@ -42,3 +42,6 @@ next-env.d.ts
 
 # exported data (symlink to ../data/export in dev; served from R2 in prod)
 /public/data
+
+# generated MapLibre worker (copied by predev/prebuild)
+/public/maplibre/
