@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   ComposedChart,
   Area,
@@ -10,13 +10,16 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
 import { useQuery } from "@/lib/useQuery";
 import { parquet } from "@/lib/query";
 import { chart } from "@/lib/theme";
+import { formatMonth } from "@/lib/format";
 
 type TrendRow = { month: string; crimes: number; avg_12m: number };
+type GapRow = { start_month: string };
 
 type Range = "3y" | "5y" | "All";
 const RANGES: { label: Range; months: number }[] = [
@@ -24,14 +27,6 @@ const RANGES: { label: Range; months: number }[] = [
   { label: "5y", months: 60 },
   { label: "All", months: Infinity },
 ];
-
-function fmtMonth(value: string): string {
-  const [y, m] = value.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString("en-GB", {
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function fmtCount(n: number): string {
   return n.toLocaleString("en-GB");
@@ -65,12 +60,15 @@ export default function TrendChart() {
     `;
   });
 
-  useEffect(() => {
-    if (data) {
-      const latest12 = data.slice(-12).reduce((s, r) => s + r.crimes, 0);
-      console.log("[TrendChart] sum of latest 12 months crimes:", latest12);
-    }
-  }, [data]);
+  const { data: gapData } = useQuery<GapRow>((index) => {
+    const KI = parquet(index, "rpt_known_issues");
+    return `
+      select start_month::varchar as start_month
+      from ${KI}
+      where issue_type = 'coverage gap'
+      order by start_month
+    `;
+  });
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -80,9 +78,16 @@ export default function TrendChart() {
       : data.slice(Math.max(0, data.length - r.months));
   }, [data, range]);
 
+  const visibleGaps = useMemo(() => {
+    if (!gapData || filtered.length === 0) return [];
+    const first = filtered[0].month;
+    const last = filtered[filtered.length - 1].month;
+    return gapData.filter((g) => g.start_month >= first && g.start_month <= last);
+  }, [gapData, filtered]);
+
   const ariaLabel =
     filtered.length > 0
-      ? `Monthly London crime from ${fmtMonth(filtered[0].month)} to ${fmtMonth(filtered[filtered.length - 1].month)}`
+      ? `Monthly London crime from ${formatMonth(filtered[0].month)} to ${formatMonth(filtered[filtered.length - 1].month)}`
       : "Monthly London crime trend";
 
   if (loading) return <Skeleton />;
@@ -146,7 +151,7 @@ export default function TrendChart() {
             />
             <XAxis
               dataKey="month"
-              tickFormatter={fmtMonth}
+              tickFormatter={formatMonth}
               tick={{ fontSize: 11, fill: "var(--chart-axis)" }}
               axisLine={{ stroke: "var(--border)" }}
               tickLine={false}
@@ -176,7 +181,7 @@ export default function TrendChart() {
               }
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               labelFormatter={(lbl: any) =>
-                typeof lbl === "string" ? fmtMonth(lbl) : lbl
+                typeof lbl === "string" ? formatMonth(lbl) : lbl
               }
             />
             <Legend
@@ -190,6 +195,20 @@ export default function TrendChart() {
                 </span>
               )}
             />
+
+            {visibleGaps.map((g) => (
+              <ReferenceLine
+                key={g.start_month}
+                x={g.start_month}
+                stroke="var(--fg-muted)"
+                strokeDasharray="4 2"
+                label={{
+                  value: "police.uk gap",
+                  position: "insideTopRight",
+                  style: { fontSize: 10, fill: "var(--fg-muted)" },
+                }}
+              />
+            ))}
 
             <Area
               type="monotone"
