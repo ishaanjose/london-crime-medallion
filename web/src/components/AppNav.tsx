@@ -7,6 +7,7 @@ const links = [
   { href: "/", label: "Overview" },
   { href: "/map", label: "Map" },
   { href: "/place", label: "Place" },
+  { href: "/outcomes", label: "Outcomes" },
   { href: "/trust", label: "Data trust" },
 ];
 
@@ -19,13 +20,14 @@ export default function AppNav() {
       aria-label="Site navigation"
     >
       <div
-        className="mx-auto max-w-5xl px-4 flex gap-6 h-10 items-center"
+        className="mx-auto max-w-5xl px-4 flex gap-4 sm:gap-6 h-10 items-center overflow-x-auto whitespace-nowrap"
         style={{
           paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))",
           paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",
         }}
       >
-        <span className="text-sm font-semibold text-[var(--fg)] mr-2">
+        {/* Hidden on phones so all five links fit at 375px */}
+        <span className="hidden sm:inline text-sm font-semibold text-[var(--fg)] mr-2">
           London Crime
         </span>
         {links.map(({ href, label }) => {

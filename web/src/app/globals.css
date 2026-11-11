@@ -17,6 +17,13 @@
   --chart-fill: rgba(37, 99, 235, 0.08);
   --chart-grid: #f1f5f9;
   --chart-axis: #94a3b8;
+  --outcome-2: #7c3aed;
+  --outcome-3: #b45309;
+  --outcome-4: #0f766e;
+  --outcome-5: #be185d;
+  --outcome-6: #64748b;
+  --outcome-7: #cbd5e1;
+  --impaired:  rgba(180, 83, 9, 0.10);
 
   /* Map sequential palette */
   --map-seq-1: #ffffd4;
@@ -44,6 +51,13 @@
     --chart-fill: rgba(88, 166, 255, 0.10);
     --chart-grid: #1c2128;
     --chart-axis: #6e7681;
+    --outcome-2: #bc8cff;
+    --outcome-3: #f0a830;
+    --outcome-4: #2dd4bf;
+    --outcome-5: #f472b6;
+    --outcome-6: #8b949e;
+    --outcome-7: #3b424c;
+    --impaired:  rgba(240, 168, 48, 0.12);
     /* Map sequential palette */
     --map-seq-1: #2d1b05;
     --map-seq-2: #5c3010;
@@ -69,6 +83,13 @@
   --chart-fill: rgba(88, 166, 255, 0.10);
   --chart-grid: #1c2128;
   --chart-axis: #6e7681;
+  --outcome-2: #bc8cff;
+  --outcome-3: #f0a830;
+  --outcome-4: #2dd4bf;
+  --outcome-5: #f472b6;
+  --outcome-6: #8b949e;
+  --outcome-7: #3b424c;
+  --impaired:  rgba(240, 168, 48, 0.12);
   /* Map sequential palette */
   --map-seq-1: #2d1b05;
   --map-seq-2: #5c3010;
