@@ -46,3 +46,14 @@ select
     description,
     handling
 from {{ ref('known_source_changes') }}
+union all
+select
+    'coverage gap',
+    'police_uk',
+    crime_group,
+    start_month::date,
+    end_month::date,
+    null,
+    force || ': ' || reason,
+    'excluded from year-on-year comparisons while in effect'
+from {{ ref('known_crime_gaps') }}

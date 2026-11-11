@@ -49,6 +49,30 @@ seeds:
       - name: handling
         data_tests:
           - not_null
+  - name: known_crime_gaps
+    description: Known coverage gaps where police.uk undercounts relative to the Met datastore; an empty end_month means the gap is still in effect.
+    config:
+      column_types:
+        start_month: date
+        end_month: date
+    columns:
+      - name: force
+        data_tests:
+          - not_null
+      - name: crime_group
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('police_uk_crime_type_map')
+                field: crime_group
+      - name: start_month
+        data_tests:
+          - not_null
+      - name: reason
+        data_tests:
+          - not_null
+
   - name: london_boroughs
     columns:
       - name: borough_code
