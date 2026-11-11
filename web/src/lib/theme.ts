@@ -13,6 +13,21 @@ export const chart = {
 
 export type ChartKey = keyof typeof chart;
 
+// Final police outcome categories, in the order they stack. Charged shares
+// --chart-1 so it reads as the same measure as the charge rate charts.
+export const outcome = {
+  "Charged":                        "var(--chart-1)",
+  "Out-of-court resolution":        "var(--outcome-2)",
+  "Unable to prosecute":            "var(--outcome-3)",
+  "Not in public interest":         "var(--outcome-4)",
+  "Passed to another organisation": "var(--outcome-5)",
+  "No suspect identified":          "var(--outcome-6)",
+  "No outcome recorded":            "var(--outcome-7)",
+} as const;
+
+// Marks months or areas whose outcome data is impaired.
+export const impaired = "var(--impaired)";
+
 // 7-step single-hue sequential palette for the LSOA map.
 // Light: pale yellow → deep orange-red. Dark: same hue, adjusted for dark bg.
 export const mapSeq = {
