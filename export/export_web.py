@@ -26,6 +26,7 @@ EXPORTS = [
     {"name": "dim_postcode", "table": "main_gold.dim_postcode", "partition": None},
     {"name": "dim_map_point", "table": "main_gold.dim_map_point", "partition": None},
     {"name": "fct_police_uk_lsoa_month", "table": "main_gold.fct_police_uk_lsoa_month", "partition": "year"},
+    {"name": "fct_police_uk_crimes_lsoa_month", "table": "main_gold.fct_police_uk_crimes_lsoa_month", "partition": "year"},
     {"name": "fct_police_uk_point_month", "table": "main_gold.fct_police_uk_point_month", "partition": "month"},
     {"name": "fct_police_uk_borough_month", "table": "main_gold.fct_police_uk_borough_month", "partition": None},
     {"name": "fct_police_uk_crimes_borough_month", "table": "main_gold.fct_police_uk_crimes_borough_month", "partition": None},
