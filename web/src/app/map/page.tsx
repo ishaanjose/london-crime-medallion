@@ -8,6 +8,7 @@ import { formatMonth } from "@/lib/format";
 import { classify } from "@/lib/classify";
 import LsoaMap, { type LsoaValue, type DimRow } from "@/components/LsoaMap";
 import MapLegend from "@/components/MapLegend";
+import SectionBoundary from "@/components/SectionBoundary";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 // ---- Types ----------------------------------------------------------------
@@ -499,6 +500,7 @@ function MapPageInner() {
       )}
 
       {/* Map + legend */}
+      <SectionBoundary>
       <div className="relative">
         {valuesError && <InlineError message={valuesError} />}
 
@@ -542,11 +544,14 @@ function MapPageInner() {
           </div>
         )}
       </div>
+      </SectionBoundary>
 
       {/* Top 10 */}
+      <SectionBoundary>
       {values.length > 0 && (
         <Top10 values={values} dim={dim} measure={sel.measure} />
       )}
+      </SectionBoundary>
     </main>
   );
 }
