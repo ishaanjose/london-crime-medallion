@@ -130,8 +130,8 @@ function Summary({ postcode, lsoa }: Props) {
         />
       </div>
       <p className="mt-2 text-xs text-[var(--fg-muted)]">
-        Distances are measured from the LSOA’s population-weighted centre, not from the
-        postcode. Crime counts exclude anti-social behaviour
+        Distances are straight-line from the middle of this small area (the LSOA), not
+        from your postcode, so they can differ from a map by a few hundred metres. Crime counts exclude anti-social behaviour
         {r.excluded_groups ? ` and ${r.excluded_groups} (police.uk coverage gap)` : ""}.
       </p>
     </div>
