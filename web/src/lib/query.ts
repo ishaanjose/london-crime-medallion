@@ -1,6 +1,16 @@
 import { getDb } from "@/lib/duckdb";
 import { dataUrl, type ExportIndex } from "@/lib/data";
 
+export function parquetYears(index: ExportIndex, name: string, years: number[]): string {
+  const urls = years.map((y) => {
+    const path = `${name}/year=${y}/data_0.parquet`;
+    const file = index.files.find((f) => f.path === path);
+    if (!file) throw new Error(`${path} not found in export index`);
+    return `'${dataUrl(path)}'`;
+  });
+  return `read_parquet([${urls.join(", ")}])`;
+}
+
 export function parquet(index: ExportIndex, name: string): string {
   const path = `${name}.parquet`;
   const file = index.files.find((f) => f.path === path);
