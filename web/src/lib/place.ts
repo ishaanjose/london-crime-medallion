@@ -74,27 +74,36 @@ function windowYears(index: ExportIndex, table: string): number[] {
   return years.filter((y) => y >= max - 1).sort();
 }
 
+// Crime groups with a registered coverage gap overlapping the `months`-month
+// window to the latest month. Expects a CTE `mx` with the latest month as `m`.
+export function coverageGapExcludedCte(index: ExportIndex, months: number): string {
+  const KI = parquet(index, "rpt_known_issues");
+  return `
+    excluded as (
+      select distinct scope as crime_group
+      from ${KI}, mx
+      where issue_type = 'coverage gap'
+        and start_month <= m
+        and coalesce(end_month, date '9999-12-01') > (m - interval ${months} month)::date
+    )`;
+}
+
 // CTEs ending in `lsoa`: one row per LSOA with its 12-month crime rate and
 // the factor columns. Excludes ASB, crime groups with a coverage gap
 // overlapping the window (same rule as CrimeGroupBars), and LSOAs flagged
-// low-population at the latest month.
-function lsoaCtes(index: ExportIndex): string {
-  const CLM = parquetYears(index, "fct_police_uk_crimes_lsoa_month", windowYears(index, "fct_police_uk_crimes_lsoa_month"));
-  const LM = parquetYears(index, "fct_police_uk_lsoa_month", windowYears(index, "fct_police_uk_lsoa_month"));
-  const KI = parquet(index, "rpt_known_issues");
+// low-population at the latest month. `lsoa_all` is the same before the
+// low-population filter, plus `low_pop`, `pop` and `crimes`.
+// `years` overrides the partitions read; it must cover the 12-month window.
+export function lsoaCtes(index: ExportIndex, years?: number[]): string {
+  const CLM = parquetYears(index, "fct_police_uk_crimes_lsoa_month", years ?? windowYears(index, "fct_police_uk_crimes_lsoa_month"));
+  const LM = parquetYears(index, "fct_police_uk_lsoa_month", years ?? windowYears(index, "fct_police_uk_lsoa_month"));
   const DIM = parquet(index, "dim_lsoa");
   const cols = [...new Set(Object.values(FACTORS).map((f) => f.column))];
 
   return `
     clm as (select * from ${CLM}),
     mx as (select max(month) as m from clm),
-    excluded as (
-      select distinct scope as crime_group
-      from ${KI}, mx
-      where issue_type = 'coverage gap'
-        and start_month <= m
-        and coalesce(end_month, date '9999-12-01') > (m - interval 12 month)::date
-    ),
+    ${coverageGapExcludedCte(index, 12).trim()},
     crimes as (
       select lsoa21_code, sum(crime_count)::double as n
       from clm, mx
@@ -109,15 +118,22 @@ function lsoaCtes(index: ExportIndex): string {
       from ${LM}, mx
       where month = m
     ),
-    lsoa as (
+    lsoa_all as (
       select
         d.lsoa21_code,
         case when p.pop > 0 then coalesce(c.n, 0) * 1000.0 / p.pop end as rate_per_1000,
-        ${cols.map((c) => `d.${c}`).join(",\n        ")}
+        ${cols.map((c) => `d.${c}`).join(",\n        ")},
+        p.low_pop,
+        p.pop,
+        coalesce(c.n, 0) as crimes
       from ${DIM} as d
       join pop as p using (lsoa21_code)
       left join crimes as c using (lsoa21_code)
-      where not p.low_pop
+    ),
+    lsoa as (
+      select * exclude (low_pop, pop, crimes)
+      from lsoa_all
+      where not low_pop
     )`;
 }
 

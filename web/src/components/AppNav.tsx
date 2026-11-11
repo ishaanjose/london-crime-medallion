@@ -7,6 +7,7 @@ const links = [
   { href: "/", label: "Overview" },
   { href: "/map", label: "Map" },
   { href: "/place", label: "Place" },
+  { href: "/area", label: "Area" },
   { href: "/trust", label: "Data trust" },
 ];
 
