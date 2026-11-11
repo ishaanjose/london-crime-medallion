@@ -1,4 +1,4 @@
-import type { ClassBreak } from "@/lib/classify";
+import type { ClassBreak, LabelledClassBreak } from "@/lib/classify";
 
 type Props = {
   breaks: ClassBreak[];
@@ -80,6 +80,42 @@ export default function MapLegend({ breaks, lowPopColor, measure, showLowPop, wi
               style={{ background: lowPopColor }}
             />
             <span className="text-xs text-[var(--fg-muted)] italic">Low population</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Legend for fixed-band context layers: one labelled row per class, plus a
+// "No data" row when some areas have no value. `ends` labels the first and
+// last rows (e.g. "Better" / "Worse") so the direction of the scale is clear.
+export function FixedLegend({ title, breaks, noDataColor, showNoData, ends }: {
+  title: string;
+  breaks: LabelledClassBreak[];
+  noDataColor: string;
+  showNoData: boolean;
+  ends?: { first: string; last: string };
+}) {
+  return (
+    <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-3">
+      <p className="text-xs font-medium text-[var(--fg)] mb-2">{title}</p>
+      <div className="space-y-1">
+        {breaks.map((b, i) => (
+          <div key={b.label} className="flex items-center gap-2">
+            <span className="inline-block w-4 h-3 rounded-sm shrink-0" style={{ background: b.color }} />
+            <span className="tabular-nums text-xs text-[var(--fg-muted)]">{b.label}</span>
+            {ends && (i === 0 || i === breaks.length - 1) && (
+              <span className="ml-auto pl-2 text-xs font-medium text-[var(--fg)]">
+                {i === 0 ? ends.first : ends.last}
+              </span>
+            )}
+          </div>
+        ))}
+        {showNoData && (
+          <div className="flex items-center gap-2 mt-1">
+            <span className="inline-block w-4 h-3 rounded-sm shrink-0" style={{ background: noDataColor }} />
+            <span className="text-xs text-[var(--fg-muted)] italic">No data</span>
           </div>
         )}
       </div>
