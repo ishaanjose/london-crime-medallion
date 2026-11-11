@@ -5,7 +5,8 @@ import { loadIndex, type ExportIndex } from "@/lib/data";
 import { query } from "@/lib/query";
 
 export function useQuery<T>(
-  buildSql: (index: ExportIndex) => string,
+  // May be async, e.g. to pick partitions from a first query.
+  buildSql: (index: ExportIndex) => string | Promise<string>,
 ): { data: T[] | null; error: string | null; loading: boolean } {
   const [data, setData] = useState<T[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +20,8 @@ export function useQuery<T>(
     (async () => {
       const index = await loadIndex();
       if (cancelled) return;
-      const sql = buildSql(index);
+      const sql = await buildSql(index);
+      if (cancelled) return;
       const rows = await query<T>(sql);
       if (!cancelled) {
         setData(rows);

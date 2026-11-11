@@ -24,6 +24,14 @@ MAX_FILE_BYTES = 8 * 1024 * 1024
 EXPORTS = [
     {"name": "dim_lsoa", "table": "main_gold.dim_lsoa", "partition": None},
     {"name": "dim_postcode", "table": "main_gold.dim_postcode", "partition": None},
+    # postcode search on the area page: live postcodes only, keyed without the space (e.g. SW1A1AA)
+    {
+        "name": "postcode_lsoa",
+        "table": "main_gold.dim_postcode",
+        "partition": None,
+        "query": "select postcode_key as postcode, lsoa21_code from main_gold.dim_postcode "
+        "where is_live order by postcode_key",
+    },
     {"name": "dim_map_point", "table": "main_gold.dim_map_point", "partition": None},
     {"name": "fct_police_uk_lsoa_month", "table": "main_gold.fct_police_uk_lsoa_month", "partition": "year"},
     {"name": "fct_police_uk_crimes_lsoa_month", "table": "main_gold.fct_police_uk_crimes_lsoa_month", "partition": "year"},
@@ -56,14 +64,15 @@ GEOJSON_EXPORTS = [
 def export_tables(con: duckdb.DuckDBPyConnection) -> None:
     for spec in EXPORTS:
         name, table, partition = spec["name"], spec["table"], spec["partition"]
+        query = spec.get("query", f"select * from {table}")
         if partition is None:
             dest = STAGING / f"{name}.parquet"
-            con.execute(f"COPY (select * from {table}) TO '{dest}' ({PARQUET})")
+            con.execute(f"COPY ({query}) TO '{dest}' ({PARQUET})")
         else:
             expr, column = PARTITION_COLUMNS[partition]
             dest = STAGING / name
             con.execute(
-                f"COPY (select *, {expr} from {table}) TO '{dest}' "
+                f"COPY (select *, {expr} from ({query})) TO '{dest}' "
                 f"({PARQUET}, PARTITION_BY ({column}))"
             )
         print(f"exported {name}")

@@ -7,7 +7,7 @@ const links = [
   { href: "/", label: "Overview" },
   { href: "/map", label: "Map" },
   { href: "/place", label: "Place" },
-  { href: "/outcomes", label: "Outcomes" },
+  { href: "/area", label: "Area" },
   { href: "/trust", label: "Data trust" },
 ];
 
@@ -26,7 +26,7 @@ export default function AppNav() {
           paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",
         }}
       >
-        {/* Hidden on phones so all five links fit at 375px */}
+        {/* Hidden on phones so the links fit at 375px */}
         <span className="hidden sm:inline text-sm font-semibold text-[var(--fg)] mr-2">
           London Crime
         </span>
