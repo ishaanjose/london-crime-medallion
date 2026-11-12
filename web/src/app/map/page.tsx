@@ -482,6 +482,22 @@ function MapPageInner() {
   // Load values whenever selection changes
   const cancelRef = useRef<(() => void) | null>(null);
 
+  // Identifies the request the effect below will start, or null when it
+  // starts none. Uses the same inputs as the effect (sel.end raw, not the
+  // resolved month), so loading resets exactly when a request starts.
+  const valuesRequest =
+    index && metaLoaded && sel.layer === "crime" && (sel.end || availableMonths[0])
+      ? `${sel.group}|${sel.period}|${sel.end}`
+      : null;
+  const [prevValuesRequest, setPrevValuesRequest] = useState<string | null>(null);
+  if (valuesRequest !== prevValuesRequest) {
+    setPrevValuesRequest(valuesRequest);
+    if (valuesRequest !== null) {
+      setValuesLoading(true);
+      setValuesError(null);
+    }
+  }
+
   useEffect(() => {
     if (!index || !metaLoaded) return;
 
@@ -498,9 +514,6 @@ function MapPageInner() {
 
     let cancelled = false;
     cancelRef.current = () => { cancelled = true; };
-
-    setValuesLoading(true);
-    setValuesError(null);
 
     const windowMonths = sel.period === "1m" ? 1 : 12;
 

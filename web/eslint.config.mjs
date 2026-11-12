@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated or vendored, not our code:
+    "public/maplibre/**", // worker copied from node_modules by copy-maplibre-worker
+    ".wrangler/**", // Cloudflare wrangler dev bundles
   ]),
 ]);
 

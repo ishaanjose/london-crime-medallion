@@ -12,10 +12,17 @@ export function useFetch<T>(path: string): {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Reset while rendering when the path changes, rather than inside the
+  // effect. Previous data is kept until the new response arrives.
+  const [prevPath, setPrevPath] = useState(path);
+  if (path !== prevPath) {
+    setPrevPath(path);
     setLoading(true);
     setError(null);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
     fetch(dataUrl(path))
       .then((res) => {
         if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
