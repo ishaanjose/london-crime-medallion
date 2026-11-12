@@ -9,6 +9,7 @@ parks as (
     select
         site_id,
         name,
+        site_function,
         geometry
     from {{ ref('os__greenspace_sites') }}
     where site_function in ('Public Park Or Garden', 'Playing Field')
@@ -18,6 +19,7 @@ entrances as (
     select
         access.site_id,
         parks.name,
+        parks.site_function,
         access.geometry
     from {{ ref('os__access_points') }} as access
     inner join parks
@@ -34,7 +36,9 @@ nearest as (
             as nearest_park_site_id,
         -- arg_min skips null names and would return a different, named park; arg_min_null doesn't
         arg_min_null(entrances.name, ST_Distance(lsoas.centroid_bng, entrances.geometry))
-            as nearest_park_name
+            as nearest_park_name,
+        arg_min(entrances.site_function, ST_Distance(lsoas.centroid_bng, entrances.geometry))
+            as nearest_park_function
     from lsoas
     inner join entrances
         on ST_DWithin(lsoas.centroid_bng, entrances.geometry, 5000)
@@ -57,6 +61,7 @@ select
     nearest.nearest_park_entrance_m,
     nearest.nearest_park_site_id,
     nearest.nearest_park_name,
+    nearest.nearest_park_function,
     coalesce(area.park_ha_within_1km, 0) as park_ha_within_1km
 from lsoas
 left join nearest

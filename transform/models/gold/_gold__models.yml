@@ -289,7 +289,14 @@ models:
         data_tests:
           - not_null
       - name: nearest_park_name
-        description: Null when the nearest park has no name in OS Open Greenspace.
+        description: Null when the nearest park has no name in OS Open Greenspace; show nearest_park_function instead.
+      - name: nearest_park_function
+        description: OS Open Greenspace function of the nearest park ("Public Park Or Garden" or "Playing Field"); always set, so it labels parks the source leaves unnamed.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Public Park Or Garden', 'Playing Field']
       - name: park_ha_within_1km
         data_tests:
           - not_null

@@ -42,7 +42,7 @@ const DIM_COLUMNS = [
   "lsoa21_code", "lsoa21_name", "borough_name",
   "imd_decile_2025", "income_decile_2025", "employment_decile_2025",
   "nearest_station_m", "nearest_station_name", "nearest_station_network", "stations_within_1km",
-  "nearest_park_entrance_m", "nearest_park_name", "park_ha_within_1km",
+  "nearest_park_entrance_m", "nearest_park_name", "nearest_park_function", "park_ha_within_1km",
 ].join(", ");
 
 // ---- Context layers ---------------------------------------------------------
