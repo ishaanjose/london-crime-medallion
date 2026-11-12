@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppNav from "@/components/AppNav";
+import { THEME_INIT_SCRIPT } from "@/lib/themePreference";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,10 +21,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    // suppressHydrationWarning: the head script may add data-theme before hydration
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Applies the saved theme before first paint to avoid a flash */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <AppNav />
         {children}

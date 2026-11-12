@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* Tailwind's dark: variant follows data-theme when set, else the OS. Without
+   this a manual Light choice on a dark OS would still apply dark: classes. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
 /* Layout: full-bleed dashboard, max-w-5xl page column, 32px section gap */
 
 :root {
@@ -35,6 +48,14 @@
   --map-seq-7: #3b0d02;
   --map-low-pop: #d1d5db;
 
+  /* Map attribution (MapLibre's own light defaults) */
+  --map-attrib-bg: hsla(0, 0%, 100%, 0.5);
+  --map-attrib-bg-compact: #ffffff;
+  --map-attrib-fg: #000000;
+  --map-attrib-link: rgba(0, 0, 0, 0.75);
+  --map-attrib-btn-open: rgba(0, 0, 0, 0.05);
+  --map-attrib-icon: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill-rule='evenodd' viewBox='0 0 20 20' fill='%23000'%3E %3Cpath d='M4 10a6 6 0 1 0 12 0 6 6 0 1 0-12 0m5-3a1 1 0 1 0 2 0 1 1 0 1 0-2 0m0 3a1 1 0 1 1 2 0v3a1 1 0 1 1-2 0'/%3E %3C/svg%3E");
+
   color-scheme: light;
 }
 
@@ -67,6 +88,12 @@
     --map-seq-6: #fad168;
     --map-seq-7: #fff7c0;
     --map-low-pop: #374151;
+    --map-attrib-bg: rgba(13, 17, 23, 0.7);
+    --map-attrib-bg-compact: rgba(22, 27, 34, 0.9);
+    --map-attrib-fg: #8b949e;
+    --map-attrib-link: #e6edf3;
+    --map-attrib-btn-open: rgba(255, 255, 255, 0.08);
+    --map-attrib-icon: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill-rule='evenodd' viewBox='0 0 20 20' fill='%23e6edf3'%3E %3Cpath d='M4 10a6 6 0 1 0 12 0 6 6 0 1 0-12 0m5-3a1 1 0 1 0 2 0 1 1 0 1 0-2 0m0 3a1 1 0 1 1 2 0v3a1 1 0 1 1-2 0'/%3E %3C/svg%3E");
     color-scheme: dark;
   }
 }
@@ -99,6 +126,12 @@
   --map-seq-6: #fad168;
   --map-seq-7: #fff7c0;
   --map-low-pop: #374151;
+  --map-attrib-bg: rgba(13, 17, 23, 0.7);
+  --map-attrib-bg-compact: rgba(22, 27, 34, 0.9);
+  --map-attrib-fg: #8b949e;
+  --map-attrib-link: #e6edf3;
+  --map-attrib-btn-open: rgba(255, 255, 255, 0.08);
+  --map-attrib-icon: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill-rule='evenodd' viewBox='0 0 20 20' fill='%23e6edf3'%3E %3Cpath d='M4 10a6 6 0 1 0 12 0 6 6 0 1 0-12 0m5-3a1 1 0 1 0 2 0 1 1 0 1 0-2 0m0 3a1 1 0 1 1 2 0v3a1 1 0 1 1-2 0'/%3E %3C/svg%3E");
   color-scheme: dark;
 }
 
@@ -121,4 +154,28 @@ body {
   outline: 2px solid var(--chart-1);
   outline-offset: 2px;
   border-radius: 3px;
+}
+
+/* MapLibre attribution, themed. The .maplibregl-map prefix outranks
+   maplibre-gl.css whatever order the two stylesheets load in. */
+.maplibregl-map .maplibregl-ctrl-attrib {
+  background-color: var(--map-attrib-bg);
+  color: var(--map-attrib-fg);
+}
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  background-color: var(--map-attrib-bg-compact);
+  color: var(--map-attrib-fg);
+}
+.maplibregl-map .maplibregl-ctrl-attrib a {
+  color: var(--map-attrib-link);
+}
+.maplibregl-map .maplibregl-ctrl-attrib a:hover {
+  color: var(--map-attrib-link);
+}
+.maplibregl-map .maplibregl-ctrl-attrib-button {
+  background-image: var(--map-attrib-icon);
+  background-color: transparent;
+}
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button {
+  background-color: var(--map-attrib-btn-open);
 }

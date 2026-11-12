@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { classifyFixed, classifyValue, type ClassBreak, type FixedClassification } from "@/lib/classify";
 import { dataUrl } from "@/lib/data";
+import { noData } from "@/lib/theme";
 
 export type LsoaValue = {
   lsoa21_code: string;
@@ -102,6 +103,26 @@ function applyColors(map: MapLibreMap, p: Paint) {
   }
 }
 
+// The OpenFreeMap dark style references sprite ids (e.g. "circle-11") that its
+// sprite sheet lacks. Stand in a 1x1 transparent image so the style stops warning.
+function addBlankImage(map: MapLibreMap, id: string) {
+  if (map.hasImage(id)) return;
+  map.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) });
+}
+
+// Matches Tailwind's md breakpoint, below which the legend sits under the map
+const NARROW_QUERY = "(max-width: 767px)";
+
+// MapLibre's compact attribution starts expanded and only collapses on the
+// first drag. On narrow screens collapse it straight away so it doesn't cover
+// the bottom of the map; the (i) button still opens it.
+function collapseAttribution(container: HTMLElement) {
+  if (!window.matchMedia(NARROW_QUERY).matches) return;
+  container
+    .querySelector(".maplibregl-ctrl-attrib.maplibregl-compact")
+    ?.classList.remove("maplibregl-compact-show");
+}
+
 function addDataLayers(map: MapLibreMap, dark: boolean) {
   if (!map.getSource("lsoa")) {
     map.addSource("lsoa", {
@@ -122,7 +143,7 @@ function addDataLayers(map: MapLibreMap, dark: boolean) {
       type: "fill",
       source: "lsoa",
       paint: {
-        "fill-color": ["coalesce", ["feature-state", "color"], "#cccccc"],
+        "fill-color": ["coalesce", ["feature-state", "color"], dark ? noData.dark : noData.light],
         "fill-opacity": 0.85,
       },
     });
@@ -136,7 +157,8 @@ function addDataLayers(map: MapLibreMap, dark: boolean) {
         "line-color": [
           "case",
           ["boolean", ["feature-state", "hovered"], false],
-          "#ffffff",
+          // White on the dark basemap, near-black on the light one
+          dark ? "#ffffff" : "#0f172a",
           dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
         ],
         "line-width": [
@@ -210,9 +232,14 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
     if (!containerRef.current) return;
 
     let hoveredId: string | null = null;
+    let onImageMissing: ((e: { id: string }) => void) | null = null;
+    // Set by cleanup. Without it, a cleanup that runs before the import
+    // resolves (React StrictMode mounts twice in dev) leaves a second map
+    // stacked in the same container.
+    let cancelled = false;
 
     import("maplibre-gl").then((ml) => {
-      if (!containerRef.current) return;
+      if (cancelled || !containerRef.current) return;
 
       // Read at import time, not mount, in case the theme flipped while loading
       const dark = darkRef.current;
@@ -237,9 +264,17 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
       appliedDarkRef.current = dark;
       map.addControl(new NavigationControl({ showCompass: false }), "top-right");
 
+      // Both are map-level, so they survive setStyle on a theme change. The
+      // resolver runs before MapLibre logs the "could not be loaded" warning;
+      // the event fires after it, so on its own it only covers later requests.
+      map.setMissingStyleImageResolver((id) => addBlankImage(map, id));
+      onImageMissing = (e) => addBlankImage(map, e.id);
+      map.on("styleimagemissing", onImageMissing);
+
       map.on("load", () => {
         addDataLayers(map, appliedDarkRef.current ?? dark);
         applyColors(map, paintRef.current);
+        if (containerRef.current) collapseAttribution(containerRef.current);
 
         map.on("mousemove", "lsoa-fill", (e) => {
           const feat = e.features?.[0];
@@ -279,7 +314,10 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
     });
 
     return () => {
+      cancelled = true;
       if (mapRef.current) {
+        if (onImageMissing) mapRef.current.off("styleimagemissing", onImageMissing);
+        mapRef.current.setMissingStyleImageResolver(null);
         mapRef.current.remove();
         mapRef.current = null;
         appliedDarkRef.current = null;
