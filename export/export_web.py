@@ -22,7 +22,13 @@ MAX_TOTAL_BYTES = 150 * 1024 * 1024
 MAX_FILE_BYTES = 8 * 1024 * 1024
 
 EXPORTS = [
-    {"name": "dim_lsoa", "table": "main_gold.dim_lsoa", "partition": None},
+    # derived floats are rounded so a rebuild's last-bit noise doesn't change the file hash
+    {
+        "name": "dim_lsoa",
+        "table": "main_gold.dim_lsoa",
+        "partition": None,
+        "round": {"area_km2": 6, "centroid_lat": 6, "centroid_lon": 6, "park_ha_within_1km": 4},
+    },
     {"name": "dim_postcode", "table": "main_gold.dim_postcode", "partition": None},
     # postcode search on the area page: live postcodes only, keyed without the space (e.g. SW1A1AA)
     {
@@ -61,10 +67,21 @@ GEOJSON_EXPORTS = [
 ]
 
 
+def table_query(spec: dict) -> str:
+    if "query" in spec:
+        return spec["query"]
+    rounded = spec.get("round")
+    replace = ""
+    if rounded:
+        replace = " replace (" + ", ".join(f"round({c}, {d}) as {c}" for c, d in rounded.items()) + ")"
+    # a fixed row order, so the same data always writes the same bytes
+    return f"select *{replace} from {spec['table']} order by all"
+
+
 def export_tables(con: duckdb.DuckDBPyConnection) -> None:
     for spec in EXPORTS:
-        name, table, partition = spec["name"], spec["table"], spec["partition"]
-        query = spec.get("query", f"select * from {table}")
+        name, partition = spec["name"], spec["partition"]
+        query = table_query(spec)
         if partition is None:
             dest = STAGING / f"{name}.parquet"
             con.execute(f"COPY ({query}) TO '{dest}' ({PARQUET})")
@@ -119,6 +136,9 @@ def write_metrics() -> None:
         }
         for sm in semantic["semantic_models"]
     ]
+    # manifest order varies between dbt parses; sort so the file only changes when content does
+    metrics.sort(key=lambda m: m["name"])
+    semantic_models.sort(key=lambda sm: sm["name"])
     write_json("metrics.json", {"metrics": metrics, "semantic_models": semantic_models})
 
 
@@ -192,6 +212,8 @@ def write_lineage(manifest: dict) -> None:
         for parent in n.get("depends_on", {}).get("nodes", [])
         if parent in ids
     ]
+    nodes.sort(key=lambda n: n["id"])
+    edges.sort()
     write_json("lineage.json", {"nodes": nodes, "edges": edges})
 
 
@@ -340,6 +362,9 @@ def main() -> None:
     write_metrics()
 
     con = duckdb.connect(str(WAREHOUSE), read_only=True)
+    # the parallel PARTITION_BY writer interleaves rows within a partition even after
+    # order by, so the bytes change run to run; one thread keeps them identical
+    con.execute("set threads = 1")
     try:
         con.load_extension("spatial")
         export_tables(con)
