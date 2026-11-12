@@ -129,7 +129,7 @@ export default function KnownIssues() {
               <th className={thCls}>Period</th>
               <th className={thCls}>Severity</th>
               <th className={thCls}>What happened</th>
-              <th className={thCls}>How it&apos;s handled</th>
+              <th className={thCls}>How it’s handled</th>
             </tr>
           </thead>
           <tbody>
@@ -174,6 +174,28 @@ export default function KnownIssues() {
           </tbody>
         </table>
       </div>
+
+      <dl
+        aria-label="Terms used above"
+        className="max-w-prose space-y-2 text-xs text-[var(--fg-muted)]"
+      >
+        <div>
+          <dt className="inline font-medium text-[var(--fg)]">Charged: </dt>
+          <dd className="inline">
+            police.uk records a police outcome of “Suspect charged” or “Suspect
+            charged as part of another case” for the crime. Charge rates only
+            count a charge recorded within 12 months of the month of the crime.
+          </dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-[var(--fg)]">Mature: </dt>
+          <dd className="inline">
+            a month of crimes is mature once the published outcomes reach at
+            least 12 months past it. Charge rates and the outcome mix only use
+            mature months, because newer crimes have not had time to be charged.
+          </dd>
+        </div>
+      </dl>
     </div>
   );
 }
