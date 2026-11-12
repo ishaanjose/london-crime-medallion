@@ -199,7 +199,10 @@ export default function Home() {
                 />
                 <KpiCard
                   label="Crimes per 1,000 (12m)"
-                  value={kpiRow.rate_12m.toLocaleString("en-GB", {
+                  value={(lflRow?.cur_12m != null && kpiRow.pop_cur != null && kpiRow.pop_cur > 0
+                    ? (lflRow.cur_12m / kpiRow.pop_cur) * 1000
+                    : kpiRow.rate_12m
+                  ).toLocaleString("en-GB", {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1,
                   })}
@@ -211,7 +214,7 @@ export default function Home() {
                   }
                   note={
                     lflRow?.excluded_groups
-                      ? `Change excludes ${lflRow.excluded_groups.toLowerCase()} (police.uk coverage gap)`
+                      ? `Excludes ${lflRow.excluded_groups.toLowerCase()} (police.uk coverage gap)`
                       : undefined
                   }
                 />
