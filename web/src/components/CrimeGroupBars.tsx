@@ -17,11 +17,16 @@ function Skeleton() {
   return (
     <div className="animate-pulse space-y-2" aria-hidden="true">
       {Array.from({ length: 9 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <div className="w-44 h-4 shrink-0 rounded bg-[var(--skeleton)]" />
-          <div className="flex-1 h-5 rounded bg-[var(--skeleton)]" />
-          <div className="w-20 h-4 shrink-0 rounded bg-[var(--skeleton)]" />
-          <div className="w-14 h-4 shrink-0 rounded bg-[var(--skeleton)]" />
+        <div key={i}>
+          {/* Mirrors the loaded rows: label on its own line on mobile, so the
+              fixed columns fit in 343px */}
+          <div className="sm:hidden h-3 w-32 mb-1 rounded bg-[var(--skeleton)]" />
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:block w-44 h-4 shrink-0 rounded bg-[var(--skeleton)]" />
+            <div className="flex-1 h-5 rounded bg-[var(--skeleton)]" />
+            <div className="w-20 h-4 shrink-0 rounded bg-[var(--skeleton)]" />
+            <div className="w-14 h-4 shrink-0 rounded bg-[var(--skeleton)]" />
+          </div>
         </div>
       ))}
     </div>

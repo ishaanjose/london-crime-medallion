@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@/lib/useQuery";
 import {
-  LEVELS, POINT_REPLACED_REASON, aboutCount, buildSummarySql, fmtGini, fmtInt, headline,
-  type Level, type SummaryRow,
+  EXCLUSION_FALLBACK, LEVELS, POINT_REPLACED_REASON, aboutCount, buildGapGroupsSql, buildSummarySql,
+  exclusionCaveat, exclusionSublabel, fmtGini, fmtInt, headline,
+  type GapGroupRow, type Level, type SummaryRow,
 } from "@/lib/concentration";
 import KpiCard from "@/components/KpiCard";
 import DataStamp from "@/components/DataStamp";
@@ -34,14 +35,14 @@ function ErrorBox({ message }: { message: string }) {
 const selectClass =
   "mt-1 block w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm text-[var(--fg)] disabled:opacity-60";
 
+// The first caveat is built from the gap registry; see exclusionCaveat.
 const CAVEATS = [
-  "Excludes anti-social behaviour, and criminal damage and arson (police.uk coverage gap) in every year so the years stay comparable.",
   "Full calendar years only. 2026 is not complete yet, so the latest year shown is 2025.",
   "Street points only include points with at least one crime that year, because police.uk never publishes empty points. That understates how concentrated crime is at street level.",
   "police.uk replaced its map-point set in December 2011 and July 2022, so in those years one street can count as two points. Street points are left out for 2011 and 2022.",
 ];
 
-function Tiles({ row }: { row: SummaryRow | undefined }) {
+function Tiles({ row, gapGroups }: { row: SummaryRow | undefined; gapGroups: string[] | null }) {
   if (!row) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-stretch">
@@ -66,7 +67,7 @@ function Tiles({ row }: { row: SummaryRow | undefined }) {
       <KpiCard
         label="Total crimes"
         value={fmtInt(row.total_crimes)}
-        sublabel="Excludes ASB and criminal damage and arson (police.uk coverage gap)"
+        sublabel={gapGroups ? exclusionSublabel(gapGroups) : "Excludes ASB and crime groups with a police.uk coverage gap"}
       />
       <KpiCard
         label="Number of places"
@@ -79,6 +80,8 @@ function Tiles({ row }: { row: SummaryRow | undefined }) {
 
 export default function ConcentrationPage() {
   const summary = useQuery<SummaryRow>(buildSummarySql);
+  const gaps = useQuery<GapGroupRow>(buildGapGroupsSql);
+  const gapGroups = gaps.data ? gaps.data.map((g) => g.crime_group) : null;
   const rows = summary.data ?? [];
   const years = [...new Set(rows.map((r) => r.year))].sort((a, b) => b - a);
   const [pickedYear, setPickedYear] = useState<number | null>(null);
@@ -92,7 +95,7 @@ export default function ConcentrationPage() {
 
   return (
     <main
-      className="mx-auto max-w-5xl px-4 py-10"
+      className="mx-auto max-w-5xl w-full px-4 py-10"
       style={{
         paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))",
         paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",
@@ -175,7 +178,7 @@ export default function ConcentrationPage() {
                 <div className="h-6 w-full max-w-prose animate-pulse rounded bg-[var(--skeleton)]" aria-hidden="true" />
               )}
               <div className="mt-4">
-                <Tiles row={row} />
+                <Tiles row={row} gapGroups={gapGroups} />
               </div>
             </SectionBoundary>
           </section>
@@ -210,6 +213,11 @@ export default function ConcentrationPage() {
       >
         <h2 className="text-sm font-medium text-[var(--fg)]">Read these first</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--fg-muted)]">
+          <li>
+            {gapGroups ? exclusionCaveat(gapGroups) : gaps.loading ? (
+              <span className="inline-block h-3.5 w-full max-w-md animate-pulse rounded bg-[var(--skeleton)] align-middle" aria-hidden="true" />
+            ) : EXCLUSION_FALLBACK}
+          </li>
           {CAVEATS.map((c) => (
             <li key={c}>{c}</li>
           ))}

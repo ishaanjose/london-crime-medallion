@@ -94,7 +94,7 @@ export default function TrustPage() {
 
   return (
     <main
-      className="mx-auto max-w-5xl px-4 py-10"
+      className="mx-auto max-w-5xl w-full px-4 py-10"
       style={{
         paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))",
         paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",
@@ -120,7 +120,7 @@ export default function TrustPage() {
           </>
         ) : (
           <div
-            className="mt-1 h-4 w-80 rounded animate-pulse bg-[var(--skeleton)]"
+            className="mt-1 h-4 w-80 max-w-full rounded animate-pulse bg-[var(--skeleton)]"
             aria-hidden="true"
           />
         )}

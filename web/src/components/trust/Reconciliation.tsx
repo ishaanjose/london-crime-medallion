@@ -161,7 +161,7 @@ export default function Reconciliation() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-[var(--fg-muted)]">
-        Each month, police.uk counts are compared to the Met&apos;s own published
+        Each month, police.uk counts are compared to the Met’s own published
         figures. A test fails the build if any crime group differs by more than
         50% without a registered coverage gap.
       </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import {
   BarChart,
   Bar,
@@ -41,6 +41,26 @@ const fmtInt = (v: number) => v.toLocaleString("en-GB");
 
 const HEIGHT = 260;
 const COMPACT_HEIGHT = 160;
+
+// Below Tailwind's sm breakpoint, band labels longer than a few characters
+// (e.g. "1,000–1,500 m") overlap, so they are rotated rather than dropped.
+const NARROW_QUERY = "(max-width: 639px)";
+const ROTATE_ABOVE_CHARS = 4;
+const ROTATED_TICK_HEIGHT = 84;
+
+function subscribeNarrow(onChange: () => void) {
+  const mq = window.matchMedia(NARROW_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function useNarrow(): boolean {
+  return useSyncExternalStore(
+    subscribeNarrow,
+    () => window.matchMedia(NARROW_QUERY).matches,
+    () => false,
+  );
+}
 
 function Skeleton({ compact }: { compact: boolean }) {
   return (
@@ -107,6 +127,7 @@ function Chart({ factor, compact }: { factor: Factor; compact: boolean }) {
   );
 
   const bands = useMemo(() => (data ? buildBands(factor, data) : []), [data, factor]);
+  const narrow = useNarrow();
   const meta = data?.[0];
   const yMax = useMemo(() => {
     const top = Math.max(0, ...bands.map((b) => b.p75 ?? 0));
@@ -122,7 +143,9 @@ function Chart({ factor, compact }: { factor: Factor; compact: boolean }) {
   const { axisLabel } = FACTORS[factor];
   const yTitle = `Crimes per 1,000 residents, 12 months to ${formatMonth(meta.latest_month)}`;
   const line = takeaway(factor, bands, meta.spearman);
-  const height = compact ? COMPACT_HEIGHT : HEIGHT;
+  const rotate = narrow && bands.some((b) => b.tick.length > ROTATE_ABOVE_CHARS);
+  // Rotated ticks get their own height so the plot area keeps its size
+  const height = (compact ? COMPACT_HEIGHT : HEIGHT) + (rotate ? ROTATED_TICK_HEIGHT - 30 : 0);
 
   return (
     <figure className="space-y-2">
@@ -134,6 +157,10 @@ function Chart({ factor, compact }: { factor: Factor; compact: boolean }) {
             <CartesianGrid strokeDasharray="3 0" stroke={chart.grid} vertical={false} />
             <XAxis
               dataKey="tick"
+              interval={0}
+              angle={rotate ? -45 : 0}
+              textAnchor={rotate ? "end" : "middle"}
+              height={rotate ? ROTATED_TICK_HEIGHT : 30}
               tick={{ fontSize: 11, fill: "var(--chart-axis)" }}
               axisLine={{ stroke: "var(--border)" }}
               tickLine={false}

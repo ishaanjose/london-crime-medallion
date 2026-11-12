@@ -69,3 +69,53 @@ export function headline(row: SummaryRow): string {
   const count = aboutCount((row.n_places * pct) / 100);
   return `In ${row.year}, ${pct}% of ${plural} (about ${fmtInt(count)} of ${fmtInt(row.n_places)}) account for half of recorded crime.`;
 }
+
+export type GapGroupRow = { crime_group: string };
+
+// Crime groups the concentration models leave out of every year: those with a
+// registered police.uk coverage gap that is still open or overlaps any full
+// year in the series. Mirrors excluded_groups in
+// int_police_uk__place_year_crimes; the LSOA level has a row for every full year.
+export function buildGapGroupsSql(index: ExportIndex): string {
+  const KI = parquet(index, "rpt_known_issues");
+  const S = parquet(index, "rpt_crime_concentration_summary");
+  return `
+    select distinct scope as crime_group
+    from ${KI}
+    where issue_type = 'coverage gap'
+      and (
+        end_month is null
+        or exists (
+          select 1
+          from (select distinct year from ${S} where place_level = 'lsoa') as y
+          where start_month <= make_date(y.year, 12, 1)
+            and end_month >= make_date(y.year, 1, 1)
+        )
+      )
+    order by crime_group`;
+}
+
+// Group names contain "and", so lists of two or more always take a comma
+// before the final "and": "criminal damage and arson, and robbery".
+function joinGroups(groups: string[]): string {
+  const names = groups.map((g) => g.toLowerCase());
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+}
+
+const gapNoun = (n: number) => (n === 1 ? "police.uk coverage gap" : "police.uk coverage gaps");
+
+export function exclusionCaveat(groups: string[]): string {
+  if (groups.length === 0) return "Excludes anti-social behaviour.";
+  return `Excludes anti-social behaviour, and ${joinGroups(groups)} (${gapNoun(groups.length)}) in every year so the years stay comparable.`;
+}
+
+export function exclusionSublabel(groups: string[]): string {
+  if (groups.length === 0) return "Excludes ASB";
+  const list = groups.length === 1 ? ` and ${joinGroups(groups)}` : `, ${joinGroups(groups)}`;
+  return `Excludes ASB${list} (${gapNoun(groups.length)})`;
+}
+
+// Used while the registry is loading or if it fails to load.
+export const EXCLUSION_FALLBACK =
+  "Excludes anti-social behaviour, and any crime group with a police.uk coverage gap, in every year so the years stay comparable.";

@@ -26,7 +26,7 @@ const SECTIONS: Section[] = [
     factor: "station",
     title: "Station distance",
     intro:
-      "Straight-line distance from each LSOA's population-weighted centre to its nearest TfL or National Rail station.",
+      "Straight-line distance from each LSOA’s population-weighted centre to its nearest TfL or National Rail station.",
     note:
       "Being near a station partly just means being in central London, where residents are outnumbered by commuters, shoppers and visitors. Rates per resident are inflated there.",
   },
@@ -42,7 +42,7 @@ const SECTIONS: Section[] = [
     factor: "park",
     title: "Park area",
     intro:
-      "Hectares of public park, garden and playing field within 1 km of each LSOA's population-weighted centre.",
+      "Hectares of public park, garden and playing field within 1 km of each LSOA’s population-weighted centre.",
     note:
       "The amount of park within 1 km shows no clear relationship. Closeness matters here, not size.",
   },
@@ -65,7 +65,7 @@ const CAVEATS = [
 export default function PlacePage() {
   return (
     <main
-      className="mx-auto max-w-5xl px-4 py-10"
+      className="mx-auto max-w-5xl w-full px-4 py-10"
       style={{
         paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))",
         paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { classifyFixed, classifyValue, type ClassBreak, type FixedClassification } from "@/lib/classify";
 import { dataUrl } from "@/lib/data";
@@ -51,6 +51,12 @@ type TooltipState = {
   y: number;
   // Map container width at hover time, used to keep the tooltip inside it
   containerWidth: number;
+  // Only the hovered LSOA is stored; its values are looked up at render time
+  // so the tooltip follows layer, group, period and measure changes at once.
+  id: string;
+};
+
+type TooltipData = {
   d: DimRow;
   n: number;
   per_1000: number | null;
@@ -191,15 +197,19 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
   const darkRef = useRef(dark);
   // Theme of the basemap style currently on the map (null until the map exists)
   const appliedDarkRef = useRef<boolean | null>(null);
-  // Cache byCode so the mousemove handler doesn't rebuild it on every event
-  const byCodeRef = useRef<Map<string, LsoaValue>>(new Map());
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const byCode = useMemo(() => new Map(values.map((v) => [v.lsoa21_code, v])), [values]);
 
   useEffect(() => { dimRef.current = dim; }, [dim]);
   useEffect(() => { darkRef.current = dark; }, [dark]);
-  useEffect(() => {
-    byCodeRef.current = new Map(values.map((v) => [v.lsoa21_code, v]));
-  }, [values]);
+
+  const tooltipData: TooltipData | null = (() => {
+    if (!tooltip) return null;
+    const d = dim.get(tooltip.id);
+    if (!d) return null;
+    const v = byCode.get(tooltip.id);
+    return { d, n: v?.n ?? 0, per_1000: v?.per_1000 ?? null, low_pop: v?.low_pop ?? false };
+  })();
 
   // Apply feature-state colours whenever anything that affects them changes
   useEffect(() => {
@@ -288,18 +298,13 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
           hoveredId = id;
           map.setFeatureState({ source: "lsoa", id }, { hovered: true });
 
-          const v = byCodeRef.current.get(id);
-          const d = dimRef.current.get(id);
-          if (!d) return;
+          if (!dimRef.current.has(id)) return;
 
           setTooltip({
             x: e.point.x,
             y: e.point.y,
             containerWidth: containerRef.current?.clientWidth ?? 400,
-            d,
-            n: v?.n ?? 0,
-            per_1000: v?.per_1000 ?? null,
-            low_pop: v?.low_pop ?? false,
+            id,
           });
         });
 
@@ -334,7 +339,7 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
         className="w-full rounded-md overflow-hidden border border-[var(--border)]"
         style={{ height: "520px" }}
       />
-      {tooltip && (
+      {tooltip && tooltipData && (
         <div
           className="pointer-events-none absolute z-10 rounded border border-[var(--border)] bg-[var(--bg)] p-2 text-xs shadow-md min-w-[160px]"
           style={{
@@ -342,9 +347,9 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
             top: Math.max(tooltip.y - 60, 4),
           }}
         >
-          <p className="font-medium text-[var(--fg)] leading-tight">{tooltip.d.lsoa21_name}</p>
-          <p className="text-[var(--fg-muted)] mt-0.5">{tooltip.d.borough_name}</p>
-          <TooltipBody t={tooltip} layer={layer} measure={measure} />
+          <p className="font-medium text-[var(--fg)] leading-tight">{tooltipData.d.lsoa21_name}</p>
+          <p className="text-[var(--fg-muted)] mt-0.5">{tooltipData.d.borough_name}</p>
+          <TooltipBody t={tooltipData} layer={layer} measure={measure} />
         </div>
       )}
     </div>
@@ -354,9 +359,9 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
 const fmtInt = (n: number) => n.toLocaleString("en-GB", { maximumFractionDigits: 0 });
 const fmt1 = (n: number) => n.toLocaleString("en-GB", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-// Rendered from the current layer, not the one at hover time, so switching
-// layers while hovering updates the tooltip without moving the mouse.
-function TooltipBody({ t, layer, measure }: { t: TooltipState; layer: MapLayer; measure: "rate" | "count" }) {
+// Rendered from the current layer and values, not the ones at hover time, so
+// switching layers while hovering updates the tooltip without moving the mouse.
+function TooltipBody({ t, layer, measure }: { t: TooltipData; layer: MapLayer; measure: "rate" | "count" }) {
   const { d } = t;
   const main = "tabular-nums mt-1 text-[var(--fg)]";
   const sub = "tabular-nums text-[var(--fg-muted)] mt-0.5";
