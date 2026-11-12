@@ -21,6 +21,8 @@ CALLS = [
     ("crime_rate", {"borough": "Westminster"}),
     ("lookup_postcode", {"postcode": "SW11 3HG"}),
     ("data_quality", {"topic": "criminal damage"}),
+    ("crime_mix", {"borough": "Westminster"}),
+    ("crime_mix", {}),
 ]
 
 
