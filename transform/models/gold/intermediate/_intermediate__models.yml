@@ -110,6 +110,11 @@ models:
           - not_null
 
   - name: int_police_uk__place_year_crimes
+    description: >
+      Crimes per place per full calendar year, at point and lsoa level. Excludes anti-social
+      behaviour and every crime group with a registered police.uk coverage gap (known_crime_gaps;
+      currently criminal damage and arson). A gap group is dropped from every year when its gap
+      is open or overlaps any full year, so the series stays like-for-like.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:

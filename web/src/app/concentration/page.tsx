@@ -35,7 +35,7 @@ const selectClass =
   "mt-1 block w-full rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm text-[var(--fg)] disabled:opacity-60";
 
 const CAVEATS = [
-  "Anti-social behaviour is excluded.",
+  "Excludes anti-social behaviour, and criminal damage and arson (police.uk coverage gap) in every year so the years stay comparable.",
   "Full calendar years only. 2026 is not complete yet, so the latest year shown is 2025.",
   "Street points only include points with at least one crime that year, because police.uk never publishes empty points. That understates how concentrated crime is at street level.",
   "police.uk replaced its map-point set in December 2011 and July 2022, so in those years one street can count as two points. Street points are left out for 2011 and 2022.",
@@ -66,7 +66,7 @@ function Tiles({ row }: { row: SummaryRow | undefined }) {
       <KpiCard
         label="Total crimes"
         value={fmtInt(row.total_crimes)}
-        sublabel="Excluding anti-social behaviour"
+        sublabel="Excludes ASB and criminal damage and arson (police.uk coverage gap)"
       />
       <KpiCard
         label="Number of places"
