@@ -5,6 +5,7 @@ import { formatMonth } from "@/lib/format";
 import {
   areaHeadline, areaRankLine, buildAreaSummarySql, type AreaSummaryRow,
 } from "@/lib/area";
+import { parkLabel } from "@/lib/parkLabel";
 import KpiCard from "@/components/KpiCard";
 import SectionBoundary from "@/components/SectionBoundary";
 
@@ -126,7 +127,7 @@ function Summary({ postcode, lsoa }: Props) {
         <KpiCard
           label="Nearest park entrance"
           value={fmtM(r.nearest_park_entrance_m)}
-          sublabel="Straight-line distance"
+          sublabel={parkLabel(r.nearest_park_name, r.nearest_park_function) ?? undefined}
         />
       </div>
       <p className="mt-2 text-xs text-[var(--fg-muted)]">

@@ -72,6 +72,8 @@ export type AreaSummaryRow = {
   nearest_station_name: string | null;
   nearest_station_m: number | null;
   nearest_park_entrance_m: number | null;
+  nearest_park_name: string | null;
+  nearest_park_function: string | null;
   london_median: number | null;
   london_n: number;
   london_below: number | null;
@@ -105,6 +107,8 @@ export async function buildAreaSummarySql(index: ExportIndex, lsoa: string): Pro
       d.nearest_station_name,
       a.nearest_station_m,
       a.nearest_park_entrance_m,
+      d.nearest_park_name,
+      d.nearest_park_function,
       ref.london_median,
       ref.london_n,
       (select count(*) from lsoa where rate_per_1000 < a.rate_per_1000) as london_below,

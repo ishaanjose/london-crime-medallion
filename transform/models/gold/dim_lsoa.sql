@@ -29,6 +29,7 @@ select
     park.nearest_park_entrance_m,
     park.nearest_park_site_id,
     park.nearest_park_name,
+    park.nearest_park_function,
     park.park_ha_within_1km
 from {{ ref('ons__london_lsoa21') }} as lsoa
 left join {{ ref('int_lsoa__imd_wide') }} as imd using (lsoa21_code)

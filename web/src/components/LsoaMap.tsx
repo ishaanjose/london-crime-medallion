@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { classifyFixed, classifyValue, type ClassBreak, type FixedClassification } from "@/lib/classify";
 import { dataUrl } from "@/lib/data";
+import { parkLabel } from "@/lib/parkLabel";
 import { noData } from "@/lib/theme";
 
 export type LsoaValue = {
@@ -27,6 +28,7 @@ export type DimRow = {
   stations_within_1km: number | null;
   nearest_park_entrance_m: number | null;
   nearest_park_name: string | null;
+  nearest_park_function: string | null;
   park_ha_within_1km: number | null;
 };
 
@@ -416,7 +418,9 @@ function TooltipBody({ t, layer, measure }: { t: TooltipData; layer: MapLayer; m
       return (
         <>
           <p className={main}>{fmtInt(d.nearest_park_entrance_m)} m to nearest park entrance</p>
-          {d.nearest_park_name && <p className={sub}>Nearest: {d.nearest_park_name}</p>}
+          {parkLabel(d.nearest_park_name, d.nearest_park_function) && (
+            <p className={sub}>Nearest: {parkLabel(d.nearest_park_name, d.nearest_park_function)}</p>
+          )}
           {d.park_ha_within_1km != null && <p className={sub}>{fmt1(d.park_ha_within_1km)} ha of park within 1 km</p>}
         </>
       );
@@ -425,9 +429,9 @@ function TooltipBody({ t, layer, measure }: { t: TooltipData; layer: MapLayer; m
       return (
         <>
           <p className={main}>{fmt1(d.park_ha_within_1km)} ha of park within 1 km</p>
-          {d.nearest_park_name && (
+          {parkLabel(d.nearest_park_name, d.nearest_park_function) && (
             <p className={sub}>
-              Nearest: {d.nearest_park_name}
+              Nearest: {parkLabel(d.nearest_park_name, d.nearest_park_function)}
               {d.nearest_park_entrance_m != null ? `, ${fmtInt(d.nearest_park_entrance_m)} m` : ""}
             </p>
           )}

@@ -29,7 +29,6 @@ EXPORTS = [
         "partition": None,
         "round": {"area_km2": 6, "centroid_lat": 6, "centroid_lon": 6, "park_ha_within_1km": 4},
     },
-    {"name": "dim_postcode", "table": "main_gold.dim_postcode", "partition": None},
     # postcode search on the area page: live postcodes only, keyed without the space (e.g. SW1A1AA)
     {
         "name": "postcode_lsoa",
