@@ -101,7 +101,11 @@ semantic_models:
 metrics:
   - name: crimes
     label: Crimes
-    description: Recorded street-level crimes from police.uk, excluding anti-social behaviour.
+    description: >
+      Recorded street-level crimes from police.uk, excluding anti-social behaviour.
+      Crime groups with a registered police.uk coverage gap (known_crime_gaps; currently
+      criminal damage and arson) are still included here, so this runs above the dashboard
+      and MCP headline figures, which exclude them while a gap overlaps the window.
     type: simple
     type_params:
       measure: crime_count
@@ -128,6 +132,9 @@ metrics:
     description: >
       Crimes per 1,000 residents over the query period (per month at month grain, per year at year grain).
       Per-resident rates overstate risk where few people live but many visit (City of London, Westminster, Westfield Stratford).
+      Includes crime groups with a registered police.uk coverage gap, which the dashboard headline
+      and the MCP crime_rate tool exclude; while a gap is open this metric reads higher than the
+      published rate (the MCP's rate_including_excluded_groups).
     type: derived
     type_params:
       expr: crimes * 1000.0 / residents
@@ -142,6 +149,10 @@ metrics:
       measure: crimes_with_id
   - name: charged_within_12m
     label: Charged within 12 months
+    description: >
+      Crimes charged within 12 months of the crime month (police-stage outcomes only).
+      Unfiltered on its own; charge_rate_12m uses the same measure as its numerator after
+      the maturity and outcome-gap filters.
     type: simple
     type_params:
       measure: charged_within_12m
@@ -161,6 +172,9 @@ metrics:
       and {{ Dimension('charge_cohort__is_outcome_data_impaired') }} = false
   - name: crimes_with_id_counted
     label: Crimes counted in the charge rate
+    description: >
+      Crimes with a crime ID that survive the charge-rate filters (mature cohorts, no
+      outcome-recording gap), zero-filled. Numerator of charge_rate_coverage.
     type: simple
     type_params:
       measure:

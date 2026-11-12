@@ -365,7 +365,10 @@ models:
       - name: crime_count_12m
         description: Trailing 12-month crime count; null for each borough's first 11 months.
       - name: crimes_per_1000_12m
-        description: Trailing 12-month crimes per 1,000 residents; null for each borough's first 11 months.
+        description: >
+          Trailing 12-month crimes per 1,000 residents; null for each borough's first 11 months.
+          Excludes anti-social behaviour but includes crime groups with a registered police.uk
+          coverage gap, so it can differ from the published headline while a gap is open.
 
   - name: fct_police_uk_london_month
     columns:
@@ -373,6 +376,11 @@ models:
         data_tests:
           - unique
           - not_null
+      - name: crimes_per_1000_12m
+        description: >
+          Trailing 12-month crimes per 1,000 residents; null for the first 11 months.
+          Excludes anti-social behaviour but includes crime groups with a registered police.uk
+          coverage gap, so it can differ from the published headline while a gap is open.
 
   - name: fct_police_uk_charge_rates
     description: >
