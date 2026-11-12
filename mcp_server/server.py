@@ -2,7 +2,7 @@
 
 Run: .venv/bin/python mcp_server/server.py   (stdio transport)
 
-Tools: list_metrics, crime_rate, lookup_postcode, data_quality. Each returns
+Tools: list_metrics, crime_rate, crime_mix, lookup_postcode, data_quality. Each returns
 JSON with value(s), unit, period, exclusions, caveats and data (the export
 build). Bad input gets a plain error message, never a traceback.
 """
@@ -167,6 +167,49 @@ def _coverage_gaps(d: Data, last: dt.date, months: int) -> list[dict[str, Any]]:
     )
 
 
+def _months_error(months: Any) -> dict[str, Any] | None:
+    if isinstance(months, bool) or not isinstance(months, int) or not 1 <= months <= 24:
+        return error("months must be a whole number from 1 to 24.")
+    return None
+
+
+def _resolve_area(d: Data, borough: str) -> tuple[str | None, str] | dict[str, Any]:
+    """(borough_code, name) for a borough or London (code None), or an error result."""
+    boroughs = _boroughs(d)
+    key = _norm(borough)
+    if key in ("london", "greater london", "all"):
+        return None, "London"
+    if key in boroughs:
+        return boroughs[key]
+    return error(
+        f"\"{borough.strip()}\" is not a London borough in this data.",
+        valid_boroughs=["London"] + [v[1] for v in boroughs.values()],
+    )
+
+
+ASB_EXCLUSION = {"what": ASB, "why": "Not a crime; recorded separately (metric asb_incidents)."}
+
+
+def _gap_exclusion(gap: dict[str, Any], crimes_left_out: int | None = None) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "what": gap["crime_group"],
+        "why": f"police.uk coverage gap from {_month(gap['start_month'])}"
+        + (f" to {_month(gap['end_month'])}" if gap["end_month"] else " (still open)")
+        + f": {gap['description']}",
+    }
+    if crimes_left_out is not None:
+        out["crimes_left_out"] = crimes_left_out
+    return out
+
+
+def _visitor_caveat(name: str) -> str:
+    return (
+        f"Per-resident rates overstate risk where few people live but many visit. {name} "
+        "has far more commuters, shoppers and tourists than residents, and crimes against "
+        "them count here, so this rate is not a resident's chance of being a victim."
+    )
+
+
 def _population_note(d: Data, last: dt.date, borough_code: str | None) -> str | None:
     years = d.partition_years("fct_police_uk_lsoa_month")
     if last.year not in years:
@@ -239,8 +282,8 @@ def list_metrics() -> dict[str, Any]:
         unit=None,
         period=(span["first"], span["last"]),
         caveats=[
-            "crime_rate computes crimes_per_1000 for a borough or London; "
-            "the charge-rate metrics are listed but not exposed as a tool."
+            "crime_rate computes crimes_per_1000 for a borough or London, and crime_mix "
+            "breaks the same crimes down by crime group; the charge-rate metrics are listed but not exposed as a tool."
         ],
     )
 
@@ -254,23 +297,16 @@ def crime_rate(borough: str, crime_group: str | None = None, months: int = 12) -
     behaviour is never counted, and crime groups with a registered police.uk coverage gap
     in the window are left out, as on the dashboard.
     """
-    if isinstance(months, bool) or not isinstance(months, int) or not 1 <= months <= 24:
-        return error("months must be a whole number from 1 to 24.")
+    if err := _months_error(months):
+        return err
     if not isinstance(borough, str) or not borough.strip() or len(borough) > 100:
         return error("borough must be a London borough name, or \"London\".")
 
     d = get_data()
-    boroughs = _boroughs(d)
-    key = _norm(borough)
-    if key in ("london", "greater london", "all"):
-        code, name = None, "London"
-    elif key in boroughs:
-        code, name = boroughs[key]
-    else:
-        return error(
-            f"\"{borough.strip()}\" is not a London borough in this data.",
-            valid_boroughs=["London"] + [v[1] for v in boroughs.values()],
-        )
+    area = _resolve_area(d, borough)
+    if isinstance(area, dict):
+        return area
+    code, name = area
 
     group = None
     if crime_group is not None and crime_group.strip():
@@ -350,30 +386,16 @@ def crime_rate(borough: str, crime_group: str | None = None, months: int = 12) -
     rate = row["crimes"] * 1000.0 / residents
     rate_all = row["crimes_all_groups"] * 1000.0 / residents
 
-    exclusions: list[dict[str, Any]] = [
-        {"what": ASB, "why": "Not a crime; recorded separately (metric asb_incidents)."}
-    ]
+    exclusions: list[dict[str, Any]] = [dict(ASB_EXCLUSION)]
     left_out = {x["crime_group"]: x["crimes"] for x in (row["left_out"] or [])}
     for gap in gaps:
         if group is not None:
             break
-        exclusions.append(
-            {
-                "what": gap["crime_group"],
-                "why": f"police.uk coverage gap from {_month(gap['start_month'])}"
-                + (f" to {_month(gap['end_month'])}" if gap["end_month"] else " (still open)")
-                + f": {gap['description']}",
-                "crimes_left_out": int(left_out.get(gap["crime_group"], 0)),
-            }
-        )
+        exclusions.append(_gap_exclusion(gap, int(left_out.get(gap["crime_group"], 0))))
 
     caveats = [RECORDED_CRIME_CAVEAT]
     if code in VISITOR_HEAVY:
-        caveats.append(
-            f"Per-resident rates overstate risk where few people live but many visit. {name} "
-            "has far more commuters, shoppers and tourists than residents, and crimes against "
-            "them count here, so this rate is not a resident's chance of being a victim."
-        )
+        caveats.append(_visitor_caveat(name))
     if months != 12:
         caveats.append(
             f"This is a {months}-month total per 1,000 residents, not an annual rate; "
@@ -405,6 +427,167 @@ def crime_rate(borough: str, crime_group: str | None = None, months: int = 12) -
         rate_including_excluded_groups=(
             round(rate_all, 1) if group is None and gap_groups else None
         ),
+        exclusions=exclusions,
+        caveats=caveats,
+    )
+
+
+@mcp.tool(annotations=READ_ONLY)
+@safe
+def crime_mix(borough: str | None = None, months: int = 12) -> dict[str, Any]:
+    """Crimes by crime group for a London borough, or all of London when borough is omitted, over the latest `months` months (1 to 24).
+
+    Each group has its count, share_of_total (percent), and rate_per_1000 (crimes per 1,000
+    residents). For a borough it also has london_share_of_total and share_difference_pp (the
+    difference in percentage points), so you can see which groups are over-represented compared
+    with London, plus london_rate_per_1000 (London's rate for the group, same window and
+    exclusions) and rate_ratio_to_london (borough rate / London rate). Same exclusions as crime_rate:
+    anti-social behaviour and crime groups with a registered police.uk coverage gap in the
+    window are left out of the counts and shares.
+    """
+    if err := _months_error(months):
+        return err
+    if borough is not None and (not isinstance(borough, str) or len(borough) > 100):
+        return error("borough must be a London borough name, or \"London\".")
+
+    d = get_data()
+    if borough is None or not borough.strip():
+        code, name = None, "London"
+    else:
+        area = _resolve_area(d, borough)
+        if isinstance(area, dict):
+            return area
+        code, name = area
+
+    bm = d.files("fct_police_uk_borough_month.parquet")
+    last = d.query("select max(month) as m from read_parquet($bm)", {"bm": bm})[0]["m"]
+    gaps = _coverage_gaps(d, last, months)
+    gap_groups = [r["crime_group"] for r in gaps]
+
+    row = d.query(
+        """
+        with
+        win as (select ($last - to_months($months - 1))::date as first, $last::date as last),
+        c as (
+            select
+                crime_group,
+                coalesce(sum(crime_count) filter (
+                    where $code::varchar is null or borough_code = $code::varchar
+                ), 0) as n,
+                sum(crime_count) as london_n
+            from read_parquet($cbm), win
+            where month between win.first and win.last
+              and crime_group <> 'Anti-social behaviour'
+            group by crime_group
+        ),
+        b as (
+            select
+                sum(population) filter (
+                    where month = win.last
+                      and ($code::varchar is null or borough_code = $code::varchar)
+                ) as residents,
+                sum(population) filter (where month = win.last) as london_residents,
+                count(distinct month) filter (
+                    where $code::varchar is null or borough_code = $code::varchar
+                ) as months_covered
+            from read_parquet($bm), win
+            where month between win.first and win.last
+        )
+        select
+            win.first,
+            win.last,
+            b.residents,
+            b.london_residents,
+            b.months_covered,
+            (select list({'crime_group': crime_group, 'crimes': n, 'london_crimes': london_n}
+                         order by crime_group) from c) as groups
+        from win, b
+        """,
+        {
+            "cbm": d.files("fct_police_uk_crimes_borough_month.parquet"),
+            "bm": bm,
+            "last": last,
+            "months": months,
+            "code": code,
+        },
+    )[0]
+
+    residents = row["residents"]
+    if not residents:
+        return error(f"No resident population for {name} in {_month(last)}.")
+    london_residents = row["london_residents"]
+    if code is not None and not london_residents:
+        return error(f"No resident population for London in {_month(last)}.")
+
+    all_groups = row["groups"] or []
+    included = [g for g in all_groups if g["crime_group"] not in gap_groups]
+    total = sum(int(g["crimes"]) for g in included)
+    london_total = sum(int(g["london_crimes"]) for g in included)
+    if not total:
+        return error(f"No recorded crimes for {name} between {_month(row['first'])} and {_month(row['last'])}.")
+
+    values = []
+    for g in sorted(included, key=lambda g: (-g["crimes"], g["crime_group"])):
+        n = int(g["crimes"])
+        share = n * 100.0 / total
+        rate = n * 1000.0 / residents
+        item: dict[str, Any] = {
+            "crime_group": g["crime_group"],
+            "crimes": n,
+            "share_of_total": round(share, 1),
+            "rate_per_1000": round(rate, 1),
+        }
+        if code is not None:
+            london_share = int(g["london_crimes"]) * 100.0 / london_total
+            item["london_share_of_total"] = round(london_share, 1)
+            item["share_difference_pp"] = round(share - london_share, 1)
+            london_rate = int(g["london_crimes"]) * 1000.0 / london_residents
+            item["london_rate_per_1000"] = round(london_rate, 1)
+            item["rate_ratio_to_london"] = round(rate / london_rate, 2) if london_rate else None
+        values.append(item)
+
+    left_out = {g["crime_group"]: int(g["crimes"]) for g in all_groups}
+    exclusions: list[dict[str, Any]] = [dict(ASB_EXCLUSION)]
+    for gap in gaps:
+        exclusions.append(_gap_exclusion(gap, left_out.get(gap["crime_group"], 0)))
+
+    caveats = [RECORDED_CRIME_CAVEAT]
+    caveats.append(
+        "share_of_total is each group's percent of the crimes counted here, so shares add up to "
+        "100 across the listed groups (give or take rounding) and leave out the excluded groups."
+    )
+    if code is not None:
+        caveats.append(
+            f"london_share_of_total is the same share for all of London (including {name}); "
+            "share_difference_pp is the borough share minus the London share, in percentage points. "
+            "A positive difference means the group makes up more of the borough's crime than London's, "
+            "not that the borough has more of it per resident; compare per resident with "
+            "rate_ratio_to_london (borough rate_per_1000 / london_rate_per_1000)."
+        )
+    if code in VISITOR_HEAVY:
+        caveats.append(_visitor_caveat(name))
+    if months != 12:
+        caveats.append(
+            f"rate_per_1000 is a {months}-month total per 1,000 residents, not an annual rate; "
+            f"compare it only with other {months}-month figures."
+        )
+    if row["months_covered"] < months:
+        caveats.append(
+            f"Only {row['months_covered']} of the {months} months have data, so the rates are understated."
+        )
+    pop_note = _population_note(d, last, code)
+    if pop_note:
+        caveats.append(pop_note)
+
+    return envelope(
+        values=values,
+        unit=f"crimes by crime group over {months} months",
+        period=(row["first"], row["last"]),
+        area=name,
+        crimes=total,
+        residents=int(residents),
+        months_covered=int(row["months_covered"]),
+        london_crimes=london_total if code is not None else None,
         exclusions=exclusions,
         caveats=caveats,
     )
@@ -512,16 +695,9 @@ def lookup_postcode(postcode: str) -> dict[str, Any]:
 
     rate = r["rate_per_1000"]
     median = r["london_median"]
-    exclusions = [{"what": ASB, "why": "Not a crime; recorded separately (metric asb_incidents)."}]
+    exclusions = [dict(ASB_EXCLUSION)]
     for gap in gaps:
-        exclusions.append(
-            {
-                "what": gap["crime_group"],
-                "why": f"police.uk coverage gap from {_month(gap['start_month'])}"
-                + (f" to {_month(gap['end_month'])}" if gap["end_month"] else " (still open)")
-                + f": {gap['description']}",
-            }
-        )
+        exclusions.append(_gap_exclusion(gap))
     exclusions.append(
         {
             "what": "Low-population LSOAs from the London median",
