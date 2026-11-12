@@ -48,6 +48,8 @@ const NETWORK_LABEL: Record<string, string> = { tfl: "TfL", national_rail: "Nati
 type TooltipState = {
   x: number;
   y: number;
+  // Map container width at hover time, used to keep the tooltip inside it
+  containerWidth: number;
   d: DimRow;
   n: number;
   per_1000: number | null;
@@ -195,7 +197,9 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
     if (!map || appliedDarkRef.current === null || appliedDarkRef.current === dark) return;
     appliedDarkRef.current = dark;
     map.once("style.load", () => {
-      addDataLayers(map, dark);
+      // Read the ref, not the closed-over value, in case the theme changed
+      // again before this style finished loading
+      addDataLayers(map, darkRef.current);
       applyColors(map, paintRef.current);
     });
     map.setStyle(dark ? DARK_STYLE : LIGHT_STYLE, { diff: false });
@@ -256,6 +260,7 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
           setTooltip({
             x: e.point.x,
             y: e.point.y,
+            containerWidth: containerRef.current?.clientWidth ?? 400,
             d,
             n: v?.n ?? 0,
             per_1000: v?.per_1000 ?? null,
@@ -280,7 +285,6 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
         appliedDarkRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -296,7 +300,7 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
         <div
           className="pointer-events-none absolute z-10 rounded border border-[var(--border)] bg-[var(--bg)] p-2 text-xs shadow-md min-w-[160px]"
           style={{
-            left: Math.min(tooltip.x + 12, (containerRef.current?.clientWidth ?? 400) - 180),
+            left: Math.min(tooltip.x + 12, tooltip.containerWidth - 180),
             top: Math.max(tooltip.y - 60, 4),
           }}
         >

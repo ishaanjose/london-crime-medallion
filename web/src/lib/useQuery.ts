@@ -13,9 +13,9 @@ export function useQuery<T>(
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Runs once on mount, so the initial state already has loading true and
+    // error null; no reset is needed here.
     let cancelled = false;
-    setLoading(true);
-    setError(null);
 
     (async () => {
       const index = await loadIndex();
