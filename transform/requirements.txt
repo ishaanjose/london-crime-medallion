@@ -3,3 +3,4 @@ dbt-duckdb==1.11.1
 dbt-metricflow==0.15.0
 duckdb==2.0.0
 metricflow==0.213.0
+mcp==2.3.0
