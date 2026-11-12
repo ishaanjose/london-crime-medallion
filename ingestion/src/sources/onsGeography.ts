@@ -4,13 +4,16 @@ export const LSOA21_BOUNDARIES_LAYER =
   "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/LSOA_2021_EW_BFE_V10_RUC/FeatureServer/3";
 
 export const LSOA21_POP_CENTROIDS_LAYER =
-  "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/LSOA_PopCentroids_EW_2021_V4/FeatureServer/0";
+  "https://services-eu1.arcgis.com/6BsumkdKnml1ntNV/arcgis/rest/services/2021_LSOA_Population_Weighted_Centroid/FeatureServer/0";
 
 export const LSOA11_LSOA21_LAD22_LOOKUP_LAYER =
   "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/LSOA11_LSOA21_LAD22_EW_LU_v5/FeatureServer/0";
 
 export const ONSPD_LATEST_LAYER =
   "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/ONSPD_Online_latest_Postcode_Centroids/FeatureServer/0";
+
+const LAYER_MOVED_HINT =
+  "The service may have moved or become private; find the current public layer via arcgis.com sharing search, owner ONSGeography";
 
 export interface LayerInfo {
   dataLastEditDate: Date;
@@ -43,7 +46,7 @@ export async function getLayerInfo(layerUrl: string): Promise<LayerInfo> {
     const response = await fetch(`${layerUrl}?f=json`);
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch ONS layer info: ${response.status} ${response.statusText}`,
+        `Failed to fetch ONS layer info for ${layerUrl}: ${response.status} ${response.statusText}. ${LAYER_MOVED_HINT}`,
       );
     }
     return response;
@@ -55,7 +58,9 @@ export async function getLayerInfo(layerUrl: string): Promise<LayerInfo> {
   }
 
   if ("error" in data) {
-    throw new Error(`ONS layer response contains an error: ${JSON.stringify(data.error)}`);
+    throw new Error(
+      `ONS layer ${layerUrl} returned an error: ${JSON.stringify(data.error)}. ${LAYER_MOVED_HINT}`,
+    );
   }
 
   const layerInfo = data as LayerInfoResponse;
