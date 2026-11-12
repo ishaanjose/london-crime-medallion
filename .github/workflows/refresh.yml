@@ -1,0 +1,136 @@
+name: refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: Deploy even if no exported file changed
+        type: boolean
+        default: false
+  # cache entries are evicted after 7 days unused; this cron's longest gap is 6 days
+  schedule:
+    - cron: "0 4 */6 * *"
+
+concurrency: { group: "${{ github.workflow }}", cancel-in-progress: false }
+
+permissions: { contents: read }
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    outputs: { cache_saved: "${{ steps.save.outcome == 'success' }}" }
+    steps:
+      # Free disk by removing preinstalled toolchains this job doesn't use
+      - run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h
+      # Check out the repo
+      - uses: actions/checkout@v5
+      # Node 26 is what the repo builds with locally (ingestion pins @types/node ^26); nothing in the repo pins it
+      - uses: actions/setup-node@v5
+        with: { node-version: "26" }
+      # Python 3.14 matches the local .venv that runs dbt and the export; nothing in the repo pins it
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.14" }
+      # Install ingestion, web and the dbt requirements
+      - run: |
+          npm ci --prefix ingestion
+          npm ci --prefix web
+          pip install -r transform/requirements.txt
+      # Restore bronze from the newest bronze-* cache
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/bronze
+          key: bronze-${{ github.run_id }}
+          restore-keys: bronze-
+      # Ingest all sources; a single failed source is reported, and the run stops only if a bronze source is missing
+      - id: ingest
+        working-directory: ingestion
+        run: |
+          set +e
+          npm run ingest 2>&1 | tee "$RUNNER_TEMP/ingest.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          failed=$(sed -n 's/^failed sources: //p' "$RUNNER_TEMP/ingest.log")
+          if [ "$rc" -ne 0 ]; then echo "::warning::ingest failed for: ${failed:-exit $rc}"; echo "result=failed: ${failed:-exit $rc}" >> "$GITHUB_OUTPUT"
+          else echo "result=ok" >> "$GITHUB_OUTPUT"; fi
+          missing=""
+          for s in police_uk met_datastore ons_geography nomis mhclg_imd tfl os_open_greenspace naptan; do
+            [ -f "../data/bronze/$s/_manifest.json" ] || missing="$missing $s"
+          done
+          if [ -n "$missing" ]; then echo "::error::bronze sources missing:$missing"; exit 1; fi
+      # Save bronze under this run's key so the next run restores it
+      - id: save
+        if: always() && steps.ingest.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: data/bronze
+          key: bronze-${{ github.run_id }}
+      # Disk usage before dbt build
+      - run: df -h
+      # Install dbt packages, then build; spatial is installed and loaded by dbt-duckdb from profiles.yml
+      - id: dbt
+        working-directory: transform
+        run: |
+          dbt deps
+          set +e
+          dbt build --profiles-dir .
+          rc=$?
+          set -e
+          count=$(python -c "import json; r=json.load(open('target/run_results.json'))['results']; print(f\"{sum(x['status'] in ('pass','success') for x in r)}/{len(r)}\")" || echo "no results")
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "dbt build: $count"
+          exit "$rc"
+      # Disk usage after dbt build, also when it failed
+      - { if: always(), run: df -h }
+      # Export gold tables and index.json for the web app
+      - run: python export/export_web.py
+      # Compare per-file sha256 with the live index; tests.json is skipped because it embeds timings and generated_at
+      - id: compare
+        env: { FORCE: "${{ inputs.force_deploy }}" }
+        run: |
+          curl -fsS https://london-crime-medallion.pages.dev/data/index.json -o "$RUNNER_TEMP/live.json" || echo "{}" > "$RUNNER_TEMP/live.json"
+          same=$(python -c "
+          import json
+          h = lambda p: {f['path']: f['sha256'] for f in json.load(open(p)).get('files', []) if f['path'] != 'tests.json'}
+          print(str(h('$RUNNER_TEMP/live.json') == h('data/export/index.json')).lower())")
+          if [ "$same" = "true" ] && [ "$FORCE" != "true" ]; then echo "no change"; echo "changed=false" >> "$GITHUB_OUTPUT"
+          else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+      # Build the static site; public/data is a gitignored symlink, so recreate it first
+      - if: steps.compare.outputs.changed == 'true'
+        run: |
+          ln -sfn ../../data/export web/public/data
+          cd web && npm run build
+      # Deploy web/out to Cloudflare Pages
+      - id: deploy
+        if: steps.compare.outputs.changed == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler pages deploy web/out --project-name london-crime-medallion --branch main
+      # Write the run summary
+      - if: always()
+        env:
+          INGEST: ${{ steps.ingest.outputs.result || steps.ingest.outcome }}
+          TESTS: ${{ steps.dbt.outputs.count || 'not run' }}
+          CHANGED: ${{ steps.compare.outputs.changed }}
+          DEPLOY: ${{ steps.deploy.outcome }}
+        run: |
+          { echo "### Refresh"; echo "- ingest: $INGEST"; echo "- dbt build: $TESTS"
+            if [ "$CHANGED" = "false" ]; then echo "- deploy: no change"; else echo "- deploy: ${DEPLOY:-not reached}"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  prune-cache:
+    needs: refresh
+    if: always() && needs.refresh.outputs.cache_saved == 'true'
+    runs-on: ubuntu-latest
+    permissions: { actions: write }
+    steps:
+      # Delete every bronze-* cache except the newest
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh cache list --key bronze- --sort created_at --order desc --limit 100 --json id --jq '.[1:][].id' \
+            | xargs -r -n1 gh cache delete
