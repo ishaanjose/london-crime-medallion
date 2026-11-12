@@ -53,12 +53,16 @@ const LAYERS: OnsLayerConfig[] = [
   {
     layerName: "lsoa21 population centroids",
     layerUrl: LSOA21_POP_CENTROIDS_LAYER,
-    outFields: "LSOA21CD",
+    outFields: "CODE",
     returnGeometry: true,
     format: "geojson",
     extraParams: LONDON_ENVELOPE,
     land: (features, editDate) =>
-      landGeoJson("lsoa21_pop_centroids", features, editDate),
+      landGeoJson(
+        "lsoa21_pop_centroids",
+        features.map(renameCentroidCode),
+        editDate,
+      ),
   },
   {
     layerName: "lsoa lookup",
@@ -81,6 +85,23 @@ const LAYERS: OnsLayerConfig[] = [
       landAttributeTable("postcodes", features, editDate, batchId),
   },
 ];
+
+// The upstream layer names the LSOA code CODE; bronze keeps LSOA21CD.
+function renameCentroidCode(feature: unknown): unknown {
+  const code =
+    typeof feature === "object" &&
+    feature !== null &&
+    "properties" in feature &&
+    typeof feature.properties === "object" &&
+    feature.properties !== null &&
+    "CODE" in feature.properties
+      ? feature.properties.CODE
+      : undefined;
+  if (typeof code !== "string" || code.length === 0) {
+    throw new Error("lsoa21 population centroids: feature has no CODE");
+  }
+  return { ...(feature as object), properties: { LSOA21CD: code } };
+}
 
 export async function ingestOnsGeography(): Promise<void> {
   for (const layer of LAYERS) {

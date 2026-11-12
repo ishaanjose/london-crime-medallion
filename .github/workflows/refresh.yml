@@ -39,7 +39,8 @@ jobs:
           npm ci --prefix web
           pip install -r transform/requirements.txt
       # Restore bronze from the newest bronze-* cache
-      - uses: actions/cache/restore@v4
+      - id: restore_bronze
+        uses: actions/cache/restore@v4
         with:
           path: data/bronze
           key: bronze-${{ github.run_id }}
@@ -47,19 +48,24 @@ jobs:
       # Ingest all sources; a single failed source is reported, and the run stops only if a bronze source is missing
       - id: ingest
         working-directory: ingestion
+        env: { RESTORED_KEY: "${{ steps.restore_bronze.outputs.cache-matched-key }}" }
         run: |
           set +e
           npm run ingest 2>&1 | tee "$RUNNER_TEMP/ingest.log"
           rc=${PIPESTATUS[0]}
           set -e
           failed=$(sed -n 's/^failed sources: //p' "$RUNNER_TEMP/ingest.log")
-          if [ "$rc" -ne 0 ]; then echo "::warning::ingest failed for: ${failed:-exit $rc}"; echo "result=failed: ${failed:-exit $rc}" >> "$GITHUB_OUTPUT"
+          if [ "$rc" -ne 0 ]; then echo "result=failed: ${failed:-exit $rc}" >> "$GITHUB_OUTPUT"
           else echo "result=ok" >> "$GITHUB_OUTPUT"; fi
           missing=""
           for s in police_uk met_datastore ons_geography nomis mhclg_imd tfl os_open_greenspace naptan; do
             [ -f "../data/bronze/$s/_manifest.json" ] || missing="$missing $s"
           done
           if [ -n "$missing" ]; then echo "::error::bronze sources missing:$missing"; exit 1; fi
+          if [ "$rc" -ne 0 ]; then
+            if [ -z "$RESTORED_KEY" ]; then echo "::error::ingest failed on a cold cache, dbt would run on partial bronze"; exit 1; fi
+            echo "::warning::ingest failed for: ${failed:-exit $rc}; the build used cached bronze ($RESTORED_KEY) for them"
+          fi
       # Save bronze under this run's key so the next run restores it
       - id: save
         if: always() && steps.ingest.outcome == 'success'
