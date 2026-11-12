@@ -388,9 +388,9 @@ def crime_rate(borough: str, crime_group: str | None = None, months: int = 12) -
         caveats.append(pop_note)
     if code is None and group is None and months == 12 and gap_groups:
         caveats.append(
-            f"The dashboard overview's 'Crimes per 1,000 (12m)' headline includes "
-            f"{', '.join(g.lower() for g in gap_groups)} ({rate_all:.1f}); it only applies "
-            f"the exclusion to the year-on-year change. This figure ({rate:.1f}) excludes it throughout."
+            f"This rate ({rate:.1f}) excludes crime groups with a police.uk coverage gap "
+            f"({', '.join(g.lower() for g in gap_groups)}). rate_including_excluded_groups "
+            f"({rate_all:.1f}) is the figure with them included, which understates recent months."
         )
 
     return envelope(
