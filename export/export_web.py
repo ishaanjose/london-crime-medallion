@@ -29,13 +29,37 @@ EXPORTS = [
         "partition": None,
         "round": {"area_km2": 6, "centroid_lat": 6, "centroid_lon": 6, "park_ha_within_1km": 4},
     },
-    # postcode search on the area page: live postcodes only, keyed without the space (e.g. SW1A1AA)
+    # postcode search on the area page: live postcodes only, keyed without the space (e.g. SW1A1AA);
+    # coordinates let the browser measure distances from the postcode itself
     {
         "name": "postcode_lsoa",
         "table": "main_gold.dim_postcode",
         "partition": None,
-        "query": "select postcode_key as postcode, lsoa21_code from main_gold.dim_postcode "
-        "where is_live order by postcode_key",
+        "query": "select postcode_key as postcode, lsoa21_code, "
+        "round(latitude, 6) as latitude, round(longitude, 6) as longitude "
+        "from main_gold.dim_postcode where is_live order by postcode_key",
+    },
+    # the same station set int_lsoa__nearest_station measures against
+    {
+        "name": "stations",
+        "table": "main_silver.transport__stations",
+        "partition": None,
+        "query": "select name, round(latitude, 6) as latitude, round(longitude, 6) as longitude "
+        "from main_silver.transport__stations order by all",
+    },
+    # the same entrance set int_lsoa__park_access measures against: foot entrances
+    # of public parks and playing fields, car-park-only excluded
+    {
+        "name": "park_entrances",
+        "table": "main_silver.os__access_points",
+        "partition": None,
+        "query": "select site.name, site.site_function, "
+        "round(ST_Y(ST_Transform(access.geometry, 'EPSG:27700', 'EPSG:4326', always_xy := true)), 6) as latitude, "
+        "round(ST_X(ST_Transform(access.geometry, 'EPSG:27700', 'EPSG:4326', always_xy := true)), 6) as longitude "
+        "from main_silver.os__access_points as access "
+        "inner join main_silver.os__greenspace_sites as site using (site_id) "
+        "where site.site_function in ('Public Park Or Garden', 'Playing Field') "
+        "and access.access_type <> 'Motor Vehicle' order by all",
     },
     {"name": "dim_map_point", "table": "main_gold.dim_map_point", "partition": None},
     {"name": "fct_police_uk_lsoa_month", "table": "main_gold.fct_police_uk_lsoa_month", "partition": "year"},
