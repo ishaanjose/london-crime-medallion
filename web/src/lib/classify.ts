@@ -189,17 +189,17 @@ export const STATION_PRESET: FixedPreset = {
 };
 
 // Distance to nearest park entrance, metres. 5 classes: ≤100 … >750.
-// Farther is worse, as with stations, so not reversed.
+// Pale to intense as distance rises; no better/worse implied.
 export const PARK_DISTANCE_PRESET: FixedPreset = {
   edges: [100, 250, 500, 750],
   closed: "upper",
   labels: defaultLabels([100, 250, 500, 750], "upper", "m"),
 };
 
-// Nearby park area, hectares. 6 classes: <5 … 80+. Small is worse, so reversed.
+// Nearby park area, hectares. 6 classes: <5 … 80+.
+// Pale to intense as area rises; no better/worse implied.
 export const PARK_PRESET: FixedPreset = {
   edges: [5, 10, 20, 40, 80],
-  reverse: true,
   closed: "lower",
   labels: defaultLabels([5, 10, 20, 40, 80], "lower", "ha"),
 };
