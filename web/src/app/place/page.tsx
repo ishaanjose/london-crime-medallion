@@ -24,7 +24,7 @@ const SECTIONS: Section[] = [
   },
   {
     factor: "station",
-    title: "Station distance",
+    title: "Distance to nearest station",
     intro:
       "Straight-line distance from each LSOA’s population-weighted centre to its nearest TfL or National Rail station.",
     note:
@@ -32,7 +32,7 @@ const SECTIONS: Section[] = [
   },
   {
     factor: "parkdist",
-    title: "Park distance",
+    title: "Distance to nearest park entrance",
     intro:
       "Straight-line distance from each LSOA’s population-weighted centre to its nearest public park, garden or playing field entrance.",
     note:

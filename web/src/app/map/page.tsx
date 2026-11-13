@@ -51,10 +51,10 @@ const LAYERS: { value: MapLayer; label: string }[] = [
   { value: "crime", label: "Crime" },
   { value: "imd", label: "Deprivation (IMD 2025)" },
   { value: "income", label: "Income deprivation (2025)" },
-  { value: "station", label: "Distance to station" },
+  { value: "station", label: "Distance to nearest station" },
   { value: "park", label: "Park space nearby" },
   { value: "parkcount", label: "Parks within 1 km" },
-  { value: "parkdist", label: "Distance to park" },
+  { value: "parkdist", label: "Distance to nearest park entrance" },
 ];
 
 const CRIME_HEADING = {
@@ -89,31 +89,31 @@ const CONTEXT: Record<ContextLayer, {
     caveat: "Share of residents on low-income benefits, ranked against all of England. Unlike the overall IMD it has no crime domain, so it is the cleaner comparison with crime.",
   },
   station: {
-    title: "LSOA station access map",
+    title: "Distance to nearest station",
     subtitle: "Distance to the nearest station by Lower Super Output Area",
     preset: STATION_PRESET,
     legendTitle: "Distance to nearest station",
-    legendEnds: { first: "Better", last: "Worse" },
+    legendEnds: { first: "Closer to a station", last: "Further from a station" },
     ariaLabel: "LSOA map: straight-line distance to nearest station",
-    caveat: "TfL plus National Rail stations, straight-line distance from the population-weighted centre.",
+    caveat: "Measured from the area’s population-weighted centre (where residents live) to the nearest TfL or National Rail station, straight-line. Areas near stations are busier, so the link with crime is correlation, not cause.",
   },
   parkdist: {
-    title: "LSOA park distance map",
+    title: "Distance to nearest park entrance",
     subtitle: "Distance to the nearest park entrance by Lower Super Output Area",
     preset: PARK_DISTANCE_PRESET,
     legendTitle: "Distance to nearest park entrance",
-    legendEnds: { first: "Better", last: "Worse" },
+    legendEnds: { first: "Closer to a park", last: "Further from a park" },
     ariaLabel: "LSOA map: straight-line distance to nearest park entrance",
-    caveat: "Straight-line distance from the population-weighted centre to the nearest public park, garden or playing field entrance. Car-park-only access is excluded.",
+    caveat: "Measured from the area’s population-weighted centre (where residents live) to the nearest foot entrance of a public park, garden or playing field. An area next to or inside a large park can still be tens of metres from a gate. Counts public parks, gardens and playing fields (OS Open Greenspace). Woodland, Green Belt, nature reserves, allotments and private gardens are not included. The link with crime is correlation, not cause, and mostly tracks how built-up an area is.",
   },
   park: {
     title: "LSOA park access map",
     subtitle: "Public park area within 1 km by Lower Super Output Area",
     preset: PARK_PRESET,
     legendTitle: "Park area within 1 km",
-    legendEnds: { first: "Worse", last: "Better" },
+    legendEnds: { first: "Less park area", last: "More park area" },
     ariaLabel: "LSOA map: hectares of park within 1 km",
-    caveat: "Public parks, gardens and playing fields.",
+    caveat: "Counts public parks, gardens and playing fields (OS Open Greenspace) within 1 km of the population-weighted centre. Woodland, Green Belt, nature reserves, allotments and private gardens are not included. The link with crime is correlation, not cause, and mostly tracks how built-up an area is.",
   },
   parkcount: {
     title: "LSOA park count map",
@@ -122,7 +122,7 @@ const CONTEXT: Record<ContextLayer, {
     legendTitle: "Parks within 1 km",
     legendEnds: { first: "Fewer parks", last: "More parks" },
     ariaLabel: "LSOA map: number of park sites within 1 km",
-    caveat: "Distinct public parks, gardens and playing fields whose grounds reach within 1 km of the population-weighted centre. A borough park and the playing field inside it count separately. The count mostly tracks how built-up an area is, so its link with crime is correlation, not cause.",
+    caveat: "Distinct public parks, gardens and playing fields (OS Open Greenspace) whose grounds reach within 1 km of the population-weighted centre. A borough park and the playing field inside it count separately. A park site counts once whatever its size. See Park area within 1 km for how much green space is nearby. Woodland, Green Belt, nature reserves, allotments and private gardens are not included. The count mostly tracks how built-up an area is, so its link with crime is correlation, not cause.",
   },
 };
 
