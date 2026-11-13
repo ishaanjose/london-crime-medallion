@@ -69,11 +69,6 @@ export type AreaSummaryRow = {
   low_pop: boolean;
   imd_decile_2025: number | null;
   income_decile_2025: number | null;
-  nearest_station_name: string | null;
-  nearest_station_m: number | null;
-  nearest_park_entrance_m: number | null;
-  nearest_park_name: string | null;
-  nearest_park_function: string | null;
   london_median: number | null;
   london_n: number;
   london_below: number | null;
@@ -104,11 +99,6 @@ export async function buildAreaSummarySql(index: ExportIndex, lsoa: string): Pro
       a.low_pop,
       a.imd_decile_2025,
       a.income_decile_2025,
-      d.nearest_station_name,
-      a.nearest_station_m,
-      a.nearest_park_entrance_m,
-      d.nearest_park_name,
-      d.nearest_park_function,
       ref.london_median,
       ref.london_n,
       (select count(*) from lsoa where rate_per_1000 < a.rate_per_1000) as london_below,
@@ -159,6 +149,57 @@ export function areaRankLine(r: AreaSummaryRow): string | null {
   if (share >= 0.99) return "That is among the highest 1% of London LSOAs.";
   if (share < 0.01) return "That is among the lowest 1% of London LSOAs.";
   return `That is higher than ${Math.round(share * 100)}% of London LSOAs.`;
+}
+
+// ---- Nearest station and park entrance, from the postcode -------------------
+
+export type NearestPointsRow = {
+  station_name: string | null;
+  station_m: number | null;
+  park_name: string | null;
+  park_function: string | null;
+  park_m: number | null;
+};
+
+// Haversine, since duckdb-wasm loads without the spatial extension. The
+// stations and park_entrances exports hold the same point sets the LSOA-centre
+// figures in dim_lsoa are measured against; those figures still feed the map
+// and correlation charts.
+function haversineSql(lat: number, lon: number, latCol: string, lonCol: string): string {
+  return `2 * 6371008.8 * asin(sqrt(
+    pow(sin(radians((${latCol} - (${lat})) / 2)), 2)
+    + cos(radians(${lat})) * cos(radians(${latCol}))
+      * pow(sin(radians((${lonCol} - (${lon})) / 2)), 2)))`;
+}
+
+export function buildNearestPointsSql(index: ExportIndex, lat: number, lon: number): string {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    throw new Error(`Unexpected postcode coordinates: ${lat}, ${lon}`);
+  }
+  return `
+    with
+    s as (
+      select name, ${haversineSql(lat, lon, "latitude", "longitude")} as d
+      from ${parquet(index, "stations")}
+    ),
+    sn as (select name, round(d)::integer as m from s order by d, name limit 1),
+    p as (
+      select name, site_function, ${haversineSql(lat, lon, "latitude", "longitude")} as d
+      from ${parquet(index, "park_entrances")}
+    ),
+    pn as (
+      select name, site_function, round(d)::integer as m
+      from p order by d, name, site_function limit 1
+    )
+    select
+      sn.name as station_name,
+      sn.m as station_m,
+      pn.name as park_name,
+      pn.site_function as park_function,
+      pn.m as park_m
+    from (select 1)
+    left join sn on true
+    left join pn on true`;
 }
 
 // ---- 24-month trend ---------------------------------------------------------

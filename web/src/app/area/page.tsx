@@ -116,7 +116,14 @@ function AreaPageInner() {
       {current?.status === "found" && (
         <div key={current.lsoa21Code}>
           <section aria-label="Area summary" className="mb-12">
-            <AreaSummary postcode={current.postcode} lsoa={current.lsoa21Code} />
+            {/* key: the distance cards depend on the postcode, not just the LSOA */}
+            <AreaSummary
+              key={current.postcode}
+              postcode={current.postcode}
+              lsoa={current.lsoa21Code}
+              latitude={current.latitude}
+              longitude={current.longitude}
+            />
           </section>
 
           <section className="mb-12" aria-labelledby="area-trend">

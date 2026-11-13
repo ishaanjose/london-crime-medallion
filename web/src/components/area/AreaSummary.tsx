@@ -3,13 +3,14 @@
 import { useQuery } from "@/lib/useQuery";
 import { formatMonth } from "@/lib/format";
 import {
-  areaHeadline, areaRankLine, buildAreaSummarySql, type AreaSummaryRow,
+  areaHeadline, areaRankLine, buildAreaSummarySql, buildNearestPointsSql,
+  type AreaSummaryRow, type NearestPointsRow,
 } from "@/lib/area";
 import { parkLabel } from "@/lib/parkLabel";
 import KpiCard from "@/components/KpiCard";
 import SectionBoundary from "@/components/SectionBoundary";
 
-type Props = { postcode: string; lsoa: string };
+type Props = { postcode: string; lsoa: string; latitude: number; longitude: number };
 
 const fmt1 = (v: number) =>
   v.toLocaleString("en-GB", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -50,7 +51,46 @@ function Skeleton() {
   );
 }
 
-function Summary({ postcode, lsoa }: Props) {
+// The two distance cards: from the postcode, not the LSOA centre. Their query
+// fails independently of the summary, so a failure stays inside the cards.
+function NearestCards({ latitude, longitude }: { latitude: number; longitude: number }) {
+  const { data, error, loading } = useQuery<NearestPointsRow>((index) =>
+    buildNearestPointsSql(index, latitude, longitude),
+  );
+
+  if (error) {
+    return (
+      <div className="col-span-2 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950 p-4 text-xs text-red-700 dark:text-red-300">
+        Nearest station and park couldn’t be worked out: {error}
+      </div>
+    );
+  }
+  if (loading || !data) {
+    return (
+      <>
+        <KpiCard loading />
+        <KpiCard loading />
+      </>
+    );
+  }
+  const r = data[0];
+  return (
+    <>
+      <KpiCard
+        label="Nearest station"
+        value={fmtM(r?.station_m ?? null)}
+        sublabel={r?.station_name ?? undefined}
+      />
+      <KpiCard
+        label="Nearest park entrance"
+        value={fmtM(r?.park_m ?? null)}
+        sublabel={parkLabel(r?.park_name, r?.park_function) ?? undefined}
+      />
+    </>
+  );
+}
+
+function Summary({ postcode, lsoa, latitude, longitude }: Props) {
   const { data, error, loading } = useQuery<AreaSummaryRow>((index) =>
     buildAreaSummarySql(index, lsoa),
   );
@@ -119,20 +159,11 @@ function Summary({ postcode, lsoa }: Props) {
           value={decile(r.income_decile_2025)}
           sublabel="1 = most deprived"
         />
-        <KpiCard
-          label="Nearest station"
-          value={fmtM(r.nearest_station_m)}
-          sublabel={r.nearest_station_name ?? undefined}
-        />
-        <KpiCard
-          label="Nearest park entrance"
-          value={fmtM(r.nearest_park_entrance_m)}
-          sublabel={parkLabel(r.nearest_park_name, r.nearest_park_function) ?? undefined}
-        />
+        <NearestCards latitude={latitude} longitude={longitude} />
       </div>
       <p className="mt-2 text-xs text-[var(--fg-muted)]">
-        Distances are straight-line from the middle of this small area (the LSOA), not
-        from your postcode, so they can differ from a map by a few hundred metres. Crime counts exclude anti-social behaviour
+        Station and park distances are straight-line from this postcode, not walking
+        routes. Crime counts exclude anti-social behaviour
         {r.excluded_groups ? ` and ${r.excluded_groups} (police.uk coverage gap)` : ""}.
       </p>
     </div>
