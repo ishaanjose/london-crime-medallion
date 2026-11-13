@@ -300,6 +300,13 @@ models:
       - name: park_ha_within_1km
         data_tests:
           - not_null
+      - name: park_count_within_1km
+        description: Distinct public park, garden and playing field sites whose polygon intersects a 1 km buffer around the population-weighted centroid; the same site set and distance basis as park_ha_within_1km.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
 
   - name: fct_police_uk_lsoa_month
     data_tests:

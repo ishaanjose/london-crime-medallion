@@ -89,6 +89,13 @@ models:
               arguments:
                 min_value: 0
                 max_value: 314.16
+      - name: park_count_within_1km
+        description: Distinct park sites intersecting the same 1 km centroid buffer park_ha_within_1km measures.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
 
   - name: int_police_uk__crime_outcomes
     columns:

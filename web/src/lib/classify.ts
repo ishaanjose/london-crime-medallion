@@ -203,3 +203,13 @@ export const PARK_PRESET: FixedPreset = {
   closed: "lower",
   labels: defaultLabels([5, 10, 20, 40, 80], "lower", "ha"),
 };
+
+// Park sites within 1 km, a count. 6 classes around a median of 8 (max 37).
+// Integer values, so the labels name both ends of each band. The count rises
+// with crime (it mostly tracks urban density), so the ramp stays unreversed:
+// darker means more parks, with no better/worse reading.
+export const PARK_COUNT_PRESET: FixedPreset = {
+  edges: [3, 6, 9, 12, 18],
+  closed: "lower",
+  labels: ["0–2", "3–5", "6–8", "9–11", "12–17", "18+"],
+};

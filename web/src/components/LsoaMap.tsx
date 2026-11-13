@@ -30,9 +30,10 @@ export type DimRow = {
   nearest_park_name: string | null;
   nearest_park_function: string | null;
   park_ha_within_1km: number | null;
+  park_count_within_1km: number | null;
 };
 
-export type MapLayer = "crime" | "imd" | "income" | "station" | "parkdist" | "park";
+export type MapLayer = "crime" | "imd" | "income" | "station" | "parkdist" | "park" | "parkcount";
 export type ContextLayer = Exclude<MapLayer, "crime">;
 
 // The per-LSOA value a context layer is coloured by.
@@ -43,6 +44,7 @@ export function contextValue(d: DimRow, layer: ContextLayer): number | null {
     case "station": return d.nearest_station_m;
     case "parkdist": return d.nearest_park_entrance_m;
     case "park": return d.park_ha_within_1km;
+    case "parkcount": return d.park_count_within_1km;
   }
 }
 
@@ -429,6 +431,22 @@ function TooltipBody({ t, layer, measure }: { t: TooltipData; layer: MapLayer; m
       return (
         <>
           <p className={main}>{fmt1(d.park_ha_within_1km)} ha of park within 1 km</p>
+          {parkLabel(d.nearest_park_name, d.nearest_park_function) && (
+            <p className={sub}>
+              Nearest: {parkLabel(d.nearest_park_name, d.nearest_park_function)}
+              {d.nearest_park_entrance_m != null ? `, ${fmtInt(d.nearest_park_entrance_m)} m` : ""}
+            </p>
+          )}
+        </>
+      );
+    case "parkcount":
+      if (d.park_count_within_1km == null) return noData;
+      return (
+        <>
+          <p className={main}>
+            {fmtInt(d.park_count_within_1km)} park{d.park_count_within_1km === 1 ? "" : "s"} within 1 km
+          </p>
+          {d.park_ha_within_1km != null && <p className={sub}>{fmt1(d.park_ha_within_1km)} ha of park within 1 km</p>}
           {parkLabel(d.nearest_park_name, d.nearest_park_function) && (
             <p className={sub}>
               Nearest: {parkLabel(d.nearest_park_name, d.nearest_park_function)}

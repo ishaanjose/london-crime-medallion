@@ -6,7 +6,7 @@ import { loadIndex, type ExportIndex } from "@/lib/data";
 import { parquet, parquetYears, query } from "@/lib/query";
 import { formatMonth } from "@/lib/format";
 import {
-  classify, fixedClasses, IMD_PRESET, INCOME_PRESET, STATION_PRESET, PARK_DISTANCE_PRESET, PARK_PRESET, type FixedPreset,
+  classify, fixedClasses, IMD_PRESET, INCOME_PRESET, STATION_PRESET, PARK_DISTANCE_PRESET, PARK_PRESET, PARK_COUNT_PRESET, type FixedPreset,
 } from "@/lib/classify";
 import LsoaMap, {
   contextValue, type LsoaValue, type DimRow, type MapLayer, type ContextLayer,
@@ -42,7 +42,7 @@ const DIM_COLUMNS = [
   "lsoa21_code", "lsoa21_name", "borough_name",
   "imd_decile_2025", "income_decile_2025", "employment_decile_2025",
   "nearest_station_m", "nearest_station_name", "nearest_station_network", "stations_within_1km",
-  "nearest_park_entrance_m", "nearest_park_name", "nearest_park_function", "park_ha_within_1km",
+  "nearest_park_entrance_m", "nearest_park_name", "nearest_park_function", "park_ha_within_1km", "park_count_within_1km",
 ].join(", ");
 
 // ---- Context layers ---------------------------------------------------------
@@ -53,6 +53,7 @@ const LAYERS: { value: MapLayer; label: string }[] = [
   { value: "income", label: "Income deprivation (2025)" },
   { value: "station", label: "Distance to station" },
   { value: "park", label: "Park space nearby" },
+  { value: "parkcount", label: "Parks within 1 km" },
   { value: "parkdist", label: "Distance to park" },
 ];
 
@@ -114,10 +115,19 @@ const CONTEXT: Record<ContextLayer, {
     ariaLabel: "LSOA map: hectares of park within 1 km",
     caveat: "Public parks, gardens and playing fields.",
   },
+  parkcount: {
+    title: "LSOA park count map",
+    subtitle: "Park sites within 1 km by Lower Super Output Area",
+    preset: PARK_COUNT_PRESET,
+    legendTitle: "Parks within 1 km",
+    legendEnds: { first: "Fewer parks", last: "More parks" },
+    ariaLabel: "LSOA map: number of park sites within 1 km",
+    caveat: "Distinct public parks, gardens and playing fields whose grounds reach within 1 km of the population-weighted centre. A borough park and the playing field inside it count separately. The count mostly tracks how built-up an area is, so its link with crime is correlation, not cause.",
+  },
 };
 
 function isMapLayer(v: string | null): v is MapLayer {
-  return v === "crime" || v === "imd" || v === "income" || v === "station" || v === "parkdist" || v === "park";
+  return v === "crime" || v === "imd" || v === "income" || v === "station" || v === "parkdist" || v === "park" || v === "parkcount";
 }
 
 function median(xs: number[]): number {
@@ -159,6 +169,10 @@ function contextSummary(layer: ContextLayer, dim: Map<string, DimRow>): string |
       const med = median(vals).toLocaleString("en-GB", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
       const k = vals.filter((v) => v < 5).length;
       return `Median park area within 1 km is ${med} ha. ${fmtInt(k)} of ${fmtInt(n)} LSOAs have under 5 ha.`;
+    }
+    case "parkcount": {
+      const k = vals.filter((v) => v < 3).length;
+      return `The median LSOA has ${fmtInt(median(vals))} park sites within 1 km. ${fmtInt(k)} of ${fmtInt(n)} LSOAs have 2 or fewer.`;
     }
   }
 }

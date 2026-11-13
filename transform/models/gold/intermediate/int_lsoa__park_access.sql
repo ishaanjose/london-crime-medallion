@@ -50,7 +50,8 @@ area as (
         lsoas.lsoa21_code,
         ST_Area(
             ST_Union_Agg(ST_Intersection(parks.geometry, ST_Buffer(lsoas.centroid_bng, 1000)))
-        ) / 10000 as park_ha_within_1km
+        ) / 10000 as park_ha_within_1km,
+        count(distinct parks.site_id) as park_count_within_1km
     from lsoas
     inner join parks
         on ST_Intersects(parks.geometry, ST_Buffer(lsoas.centroid_bng, 1000))
@@ -62,7 +63,8 @@ select
     nearest.nearest_park_site_id,
     nearest.nearest_park_name,
     nearest.nearest_park_function,
-    coalesce(area.park_ha_within_1km, 0) as park_ha_within_1km
+    coalesce(area.park_ha_within_1km, 0) as park_ha_within_1km,
+    coalesce(area.park_count_within_1km, 0) as park_count_within_1km
 from lsoas
 left join nearest
     on lsoas.lsoa21_code = nearest.lsoa21_code

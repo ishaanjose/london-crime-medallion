@@ -2,10 +2,11 @@ import type { ExportIndex } from "@/lib/data";
 import { parquet, parquetYears } from "@/lib/query";
 import {
   IMD_PRESET, INCOME_PRESET, EMPLOYMENT_PRESET, STATION_PRESET, PARK_DISTANCE_PRESET, PARK_PRESET,
+  PARK_COUNT_PRESET,
   type FixedPreset,
 } from "@/lib/classify";
 
-export type Factor = "income" | "employment" | "imd" | "station" | "parkdist" | "park";
+export type Factor = "income" | "employment" | "imd" | "station" | "parkdist" | "park" | "parkcount";
 
 export type FactorConfig = {
   column: string;
@@ -58,6 +59,13 @@ export const FACTORS: Record<Factor, FactorConfig> = {
     axisLabel: "Park area within 1 km",
     firstBand: "with under 5 ha of park within 1 km",
     lastBand: "with 80 ha or more",
+  },
+  parkcount: {
+    column: "park_count_within_1km",
+    preset: PARK_COUNT_PRESET,
+    axisLabel: "Park sites within 1 km",
+    firstBand: "with 2 or fewer parks within 1 km",
+    lastBand: "with 18 or more",
   },
 };
 
@@ -146,6 +154,7 @@ export type LsoaFactorRow = {
   nearest_station_m: number | null;
   nearest_park_entrance_m: number | null;
   park_ha_within_1km: number | null;
+  park_count_within_1km: number | null;
 };
 
 export function buildLsoaFactorsSql(index: ExportIndex): string {
