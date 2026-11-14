@@ -15,13 +15,17 @@ import { useQuery } from "@/lib/useQuery";
 import { formatMonth } from "@/lib/format";
 import { chart } from "@/lib/theme";
 import {
-  FACTORS, buildBinnedRateSql, strengthLabel, type Factor, type BinnedRateRow,
+  FACTORS, buildBinnedRateSql, buildBinnedRateSqlForSelection, strengthLabel,
+  type Factor, type BinnedRateRow,
 } from "@/lib/place";
 import SectionBoundary from "@/components/SectionBoundary";
 
 type Props = {
   factor: Factor;
   compact?: boolean;
+  group?: string;
+  period?: string;
+  latestMonth?: string;
 };
 
 type Band = {
@@ -121,9 +125,13 @@ function BandTooltip({ active, payload }: any) {
   );
 }
 
-function Chart({ factor, compact }: { factor: Factor; compact: boolean }) {
+function Chart({ factor, compact, group, period, latestMonth }: {
+  factor: Factor; compact: boolean; group?: string; period?: string; latestMonth?: string;
+}) {
   const { data, error, loading } = useQuery<BinnedRateRow>((index) =>
-    buildBinnedRateSql(index, factor),
+    group != null && period != null && latestMonth != null
+      ? buildBinnedRateSqlForSelection(index, factor, group, period, latestMonth)
+      : buildBinnedRateSql(index, factor),
   );
 
   const bands = useMemo(() => (data ? buildBands(factor, data) : []), [data, factor]);
@@ -141,7 +149,9 @@ function Chart({ factor, compact }: { factor: Factor; compact: boolean }) {
   if (!meta) throw new Error("No LSOAs with both a crime rate and a value for this factor.");
 
   const { axisLabel } = FACTORS[factor];
-  const yTitle = `Crimes per 1,000 residents, 12 months to ${formatMonth(meta.latest_month)}`;
+  const crimeLabel = group != null && group !== "all" ? group : "Crimes";
+  const periodPart = period != null && period !== "12m" ? period : `12 months to ${formatMonth(meta.latest_month)}`;
+  const yTitle = `${crimeLabel} per 1,000 residents, ${periodPart}`;
   const line = takeaway(factor, bands, meta.spearman);
   const rotate = narrow && bands.some((b) => b.tick.length > ROTATE_ABOVE_CHARS);
   // Rotated ticks get their own height so the plot area keeps its size
@@ -199,11 +209,11 @@ function Chart({ factor, compact }: { factor: Factor; compact: boolean }) {
   );
 }
 
-export default function BinnedRateChart({ factor, compact = false }: Props) {
+export default function BinnedRateChart({ factor, compact = false, group, period, latestMonth }: Props) {
+  const key = `${factor}-${group ?? ""}-${period ?? ""}-${latestMonth ?? ""}`;
   return (
     <SectionBoundary>
-      {/* key: useQuery runs once per mount, so remount when the factor changes */}
-      <Chart key={factor} factor={factor} compact={compact} />
+      <Chart key={key} factor={factor} compact={compact} group={group} period={period} latestMonth={latestMonth} />
     </SectionBoundary>
   );
 }

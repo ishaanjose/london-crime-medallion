@@ -6,7 +6,7 @@ import { loadIndex, type ExportIndex } from "@/lib/data";
 import { parquet, parquetYears, query } from "@/lib/query";
 import { formatMonth } from "@/lib/format";
 import {
-  classify, fixedClasses, IMD_PRESET, INCOME_PRESET, STATION_PRESET, PARK_DISTANCE_PRESET, PARK_PRESET, PARK_COUNT_PRESET, type FixedPreset,
+  classify, fixedClasses, quantileEdges, referenceClasses, IMD_PRESET, INCOME_PRESET, STATION_PRESET, PARK_DISTANCE_PRESET, PARK_PRESET, PARK_COUNT_PRESET, type FixedPreset,
 } from "@/lib/classify";
 import LsoaMap, {
   contextValue, type LsoaValue, type DimRow, type MapLayer, type ContextLayer,
@@ -14,6 +14,7 @@ import LsoaMap, {
 import MapLegend, { FixedLegend } from "@/components/MapLegend";
 import SectionBoundary from "@/components/SectionBoundary";
 import BinnedRateChart from "@/components/place/BinnedRateChart";
+import CrimeBreakdownChart from "@/components/place/CrimeBreakdownChart";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 // ---- Types ----------------------------------------------------------------
@@ -190,13 +191,6 @@ function yearsInWindow(endMonth: string, windowMonths: number): number[] {
   return [...years];
 }
 
-function buildCrimeFilter(group: string): string {
-  if (group === "all") return "crime_group <> 'Anti-social behaviour'";
-  if (group === "asb") return "crime_group = 'Anti-social behaviour'";
-  const escaped = group.replace(/'/g, "''");
-  return `crime_group = '${escaped}'`;
-}
-
 function existingYears(index: ExportIndex, table: string, years: number[]): number[] {
   return years.filter((y) =>
     index.files.some((f) => f.path === `${table}/year=${y}/data_0.parquet`)
@@ -206,34 +200,59 @@ function existingYears(index: ExportIndex, table: string, years: number[]): numb
 function buildValuesQuery(
   index: ExportIndex,
   endMonth: string,
-  windowMonths: number,
-  group: string
+  group: string,
+  period: string,
+  // Exclude every group with a registered coverage gap, not only gaps overlapping the window
+  excludeAllGaps = false,
 ): string {
-  const allYears = yearsInWindow(endMonth, windowMonths);
+  const isYear = period !== "12m";
+  const effectiveEnd = isYear ? `${period}-12` : endMonth;
+
+  const allYears = isYear
+    ? [Number(period)]
+    : yearsInWindow(endMonth, 12);
   const clmYears = existingYears(index, "fct_police_uk_crimes_lsoa_month", allYears);
-  const lmYears = existingYears(index, "fct_police_uk_lsoa_month", [Number(endMonth.split("-")[0])]);
+  const popYear = isYear ? Number(period) : Number(endMonth.split("-")[0]);
+  const lmYears = existingYears(index, "fct_police_uk_lsoa_month", [popYear]);
 
   const DIM = parquet(index, "dim_lsoa");
-  const filter = buildCrimeFilter(group);
+  const KI = parquet(index, "rpt_known_issues");
+  const popMonth = isYear ? `date '${period}-01-01'` : `date '${endMonth}-01'`;
+
+  const excludedCte = `excluded as (
+      select distinct scope as crime_group
+      from ${KI}
+      where issue_type = 'coverage gap'${excludeAllGaps ? "" : `
+        and start_month <= date '${effectiveEnd}-01'
+        and coalesce(end_month, date '9999-12-01') > (date '${effectiveEnd}-01' - interval 12 month)::date`}
+    )`;
+
+  let crimeFilter: string;
+  if (group === "all") {
+    crimeFilter = "crime_group <> 'Anti-social behaviour' and coalesce(crime_group, 'Unmapped') not in (select crime_group from excluded)";
+  } else {
+    crimeFilter = `crime_group = '${group.replace(/'/g, "''")}'`;
+  }
 
   const cCte = clmYears.length > 0
     ? `select lsoa21_code, sum(crime_count)::double as n
        from ${parquetYears(index, "fct_police_uk_crimes_lsoa_month", clmYears)}
-       where month > (date '${endMonth}-01' - interval ${windowMonths} month)
-         and month <= date '${endMonth}-01'
-         and ${filter}
+       where month > (date '${effectiveEnd}-01' - interval 12 month)
+         and month <= date '${effectiveEnd}-01'
+         and ${crimeFilter}
        group by 1`
     : `select null::varchar as lsoa21_code, 0.0 as n where false`;
 
   const pCte = lmYears.length > 0
     ? `select lsoa21_code, any_value(population)::double as pop, bool_or(is_low_population) as low_pop
        from ${parquetYears(index, "fct_police_uk_lsoa_month", lmYears)}
-       where month = date '${endMonth}-01'
+       where month = ${popMonth}
        group by 1`
     : `select null::varchar as lsoa21_code, null::double as pop, false as low_pop where false`;
 
   return `
-    with c as (${cCte}),
+    with ${excludedCte},
+    c as (${cCte}),
     p as (${pCte})
     select
       d.lsoa21_code,
@@ -246,13 +265,51 @@ function buildValuesQuery(
   `;
 }
 
+// Map classes for each crime group are fixed from this calendar year so
+// every period of a group is coloured on the same scale.
+const REFERENCE_YEAR = "2025";
+const referenceEdgesCache = new Map<string, Promise<number[]>>();
+
+function referenceEdges(index: ExportIndex, group: string): Promise<number[]> {
+  let p = referenceEdgesCache.get(group);
+  if (!p) {
+    p = query<MapValueRow>(buildValuesQuery(index, `${REFERENCE_YEAR}-12`, group, REFERENCE_YEAR, true))
+      .then((rows) => quantileEdges(
+        rows.filter((r) => !r.low_pop && r.per_1000 != null).map((r) => r.per_1000!),
+      ));
+    p.catch(() => referenceEdgesCache.delete(group));
+    referenceEdgesCache.set(group, p);
+  }
+  return p;
+}
+
+function isGroupDisabledForPeriod(
+  group: string,
+  period: string,
+  endMonth: string,
+  issues: KnownIssueRow[],
+): KnownIssueRow | null {
+  if (!endMonth) return null;
+  const [ey, em] = endMonth.split("-").map(Number);
+  const ws = new Date(ey, em - 1 - 12, 1);
+  const wsStr = `${ws.getFullYear()}-${String(ws.getMonth() + 1).padStart(2, "0")}`;
+
+  return issues.find((iss) => {
+    if (iss.issue_type !== "coverage gap") return false;
+    if (iss.scope.toLowerCase() !== group.toLowerCase()) return false;
+    const gapStart = iss.start_month.slice(0, 7);
+    const gapEnd = iss.end_month ? iss.end_month.slice(0, 7) : "9999-99";
+    return gapStart <= endMonth && gapEnd > wsStr;
+  }) ?? null;
+}
+
 // ---- URL state hook -------------------------------------------------------
 
 type MapSelection = {
   layer: MapLayer;
-  group: string;      // "all" | "asb" | crime group name
-  period: "12m" | "1m";
-  end: string;        // YYYY-MM
+  group: string;      // "all" | crime group name
+  period: string;     // "12m" | year string like "2019"
+  end: string;        // YYYY-MM (used when period is "12m")
   measure: "rate" | "count";
 };
 
@@ -263,11 +320,20 @@ function useMapSelection(availableMonths: string[]): [MapSelection, (k: keyof Ma
   const latestMonth = availableMonths[0] ?? "";
 
   const layerParam = sp.get("layer");
+  const periodParam = sp.get("period");
+  let period = "12m";
+  if (periodParam && /^\d{4}$/.test(periodParam)) {
+    const y = Number(periodParam);
+    if (y >= 2011 && y <= 2025) period = periodParam;
+  }
+  const groupParam = sp.get("group");
+  const group = groupParam === "asb" ? "all" : (groupParam ?? "all");
+
   const sel: MapSelection = {
     layer:   isMapLayer(layerParam) ? layerParam : "crime",
-    group:   sp.get("group")   ?? "all",
-    period:  (sp.get("period") === "1m" ? "1m" : "12m") as "12m" | "1m",
-    end:     sp.get("end")     ?? latestMonth,
+    group,
+    period,
+    end:     sp.get("end") ?? latestMonth,
     measure: (sp.get("measure") === "count" ? "count" : "rate") as "rate" | "count",
   };
 
@@ -374,7 +440,7 @@ function CoverageNotice({
         if (group === "all") {
           return (
             <p key={iss.scope}>
-              All-crime totals undercount <strong>{iss.scope.toLowerCase()}</strong>: police.uk coverage gap from {startLabel}.
+              All-crime totals exclude <strong>{iss.scope.toLowerCase()}</strong>: police.uk coverage gap from {startLabel}.
             </p>
           );
         }
@@ -458,6 +524,7 @@ function MapPageInner() {
   const [valuesLoading, setValuesLoading] = useState(false);
   const [valuesError, setValuesError] = useState<string | null>(null);
   const [values, setValues] = useState<LsoaValue[]>([]);
+  const [edges, setEdges] = useState<number[] | null>(null);
 
   const [metaLoaded, setMetaLoaded] = useState(false);
 
@@ -496,12 +563,21 @@ function MapPageInner() {
   // Load values whenever selection changes
   const cancelRef = useRef<(() => void) | null>(null);
 
-  // Identifies the request the effect below will start, or null when it
-  // starts none. Uses the same inputs as the effect (sel.end raw, not the
-  // resolved month), so loading resets exactly when a request starts.
+  const endMonth = sel.period === "12m"
+    ? (sel.end || availableMonths[0] || "")
+    : `${sel.period}-12`;
+
+  // Reset group to "all" when it becomes disabled for the active period
+  useEffect(() => {
+    if (sel.group === "all" || !metaLoaded || issues.length === 0 || !endMonth) return;
+    if (isGroupDisabledForPeriod(sel.group, sel.period, endMonth, issues)) {
+      setParam("group", "all");
+    }
+  }, [sel.group, sel.period, endMonth, metaLoaded, issues, setParam]);
+
   const valuesRequest =
-    index && metaLoaded && sel.layer === "crime" && (sel.end || availableMonths[0])
-      ? `${sel.group}|${sel.period}|${sel.end}`
+    index && metaLoaded && sel.layer === "crime" && endMonth
+      ? `${sel.group}|${sel.period}|${endMonth}`
       : null;
   const [prevValuesRequest, setPrevValuesRequest] = useState<string | null>(null);
   if (valuesRequest !== prevValuesRequest) {
@@ -523,19 +599,20 @@ function MapPageInner() {
     // loading overlay and error are only rendered for the crime layer.
     if (sel.layer !== "crime") return;
 
-    const endMonth = sel.end || availableMonths[0];
     if (!endMonth) return;
 
     let cancelled = false;
     cancelRef.current = () => { cancelled = true; };
 
-    const windowMonths = sel.period === "1m" ? 1 : 12;
-
     (async () => {
-      const sql = buildValuesQuery(index, endMonth, windowMonths, sel.group);
-      const rows = await query<MapValueRow>(sql);
+      const sql = buildValuesQuery(index, endMonth, sel.group, sel.period);
+      const [rows, groupEdges] = await Promise.all([
+        query<MapValueRow>(sql),
+        referenceEdges(index, sel.group),
+      ]);
       if (cancelled) return;
       setValues(rows);
+      setEdges(groupEdges);
       setValuesLoading(false);
     })().catch((err: unknown) => {
       if (!cancelled) {
@@ -546,17 +623,29 @@ function MapPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, metaLoaded, sel.layer, sel.group, sel.period, sel.end]);
 
-  const endMonth = sel.end || availableMonths[0] || "";
-  const windowMonths = sel.period === "1m" ? 1 : 12;
+  const windowMonths = 12;
 
+  const medianCount = useMemo(() => {
+    if (values.length === 0) return null;
+    const counts = values.map((v) => v.n);
+    counts.sort((a, b) => a - b);
+    const mid = Math.floor(counts.length / 2);
+    return counts.length % 2 ? counts[mid] : (counts[mid - 1] + counts[mid]) / 2;
+  }, [values]);
+
+  const rateClasses = useMemo(
+    () => (edges ? referenceClasses(edges, dark) : null),
+    [edges, dark],
+  );
+
+  // Rates use the group's fixed reference classes; counts keep per-selection quantiles
   const classification = useMemo(() => {
     if (values.length === 0) return { breaks: [], lowPopColor: "#ccc" };
-    const isRate = sel.measure === "rate";
-    const usable = isRate
-      ? values.filter((v) => !v.low_pop && v.per_1000 != null).map((v) => v.per_1000!)
-      : values.map((v) => v.n);
-    return classify(usable, dark);
-  }, [values, sel.measure, dark]);
+    if (sel.measure === "rate") return rateClasses ?? { breaks: [], lowPopColor: "#ccc" };
+    return classify(values.map((v) => v.n), dark);
+  }, [values, sel.measure, dark, rateClasses]);
+
+  const rateLabel = `${sel.group === "all" ? "Crimes" : sel.group} per 1,000 residents`;
 
   const contextLayer: ContextLayer | null = sel.layer === "crime" ? null : sel.layer;
 
@@ -576,17 +665,43 @@ function MapPageInner() {
   }, [contextLayer, dim]);
 
   const windowLabel = useMemo(() => {
+    if (sel.period !== "12m") return sel.period;
     if (!endMonth) return "";
-    const end = formatMonth(endMonth);
-    return sel.period === "12m" ? `12 months to ${end}` : end;
+    return `12 months to ${formatMonth(endMonth)}`;
   }, [endMonth, sel.period]);
 
+  const periodLabel = useMemo(() => {
+    if (sel.period !== "12m") return sel.period;
+    if (!endMonth) return "last 12 months";
+    return `last 12 months to ${formatMonth(endMonth)}`;
+  }, [endMonth, sel.period]);
+
+  const maxCalendarYear = useMemo(() => {
+    if (!availableMonths[0]) return 2025;
+    const [y, m] = availableMonths[0].split("-").map(Number);
+    return m === 12 ? y : y - 1;
+  }, [availableMonths]);
+
+  const crimeSummary = useMemo(() => {
+    if (contextLayer || sel.measure !== "rate" || !rateClasses || rateClasses.breaks.length < 2) return null;
+    const rated = values.filter((v) => !v.low_pop && v.per_1000 != null).map((v) => v.per_1000!);
+    if (rated.length === 0) return null;
+    const { breaks, decimals } = rateClasses;
+    const low = breaks[0];
+    const top = breaks[breaks.length - 1];
+    const nLow = rated.filter((v) => v <= low.max).length;
+    const nTop = rated.filter((v) => v > top.min).length;
+    const pct = (k: number) => Math.round((k * 100) / rated.length);
+    const sorted = [...rated].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const med = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    const fmtMed = med.toLocaleString("en-GB", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    const n = (k: number) => k.toLocaleString("en-GB");
+    return `${rateLabel}, ${periodLabel}: the median LSOA is ${fmtMed}. ${n(nLow)} of ${n(rated.length)} LSOAs (${pct(nLow)}%) are in the lowest class (${low.label}) and ${n(nTop)} (${pct(nTop)}%) in the highest (${top.label}). Classes are fixed from calendar ${REFERENCE_YEAR}, so periods compare directly.`;
+  }, [contextLayer, sel.measure, rateClasses, values, rateLabel, periodLabel]);
+
   const ariaLabel = useMemo(() => {
-    const groupLabel = sel.group === "all"
-      ? "all crime excl. ASB"
-      : sel.group === "asb"
-      ? "anti-social behaviour"
-      : sel.group;
+    const groupLabel = sel.group === "all" ? "all crime excl. ASB" : sel.group;
     const measureLabel = sel.measure === "rate" ? "per 1,000 residents" : "count";
     if (contextLayer) return CONTEXT[contextLayer].ariaLabel;
     return `LSOA crime map: ${groupLabel}, ${measureLabel}, ${windowLabel}`;
@@ -623,7 +738,9 @@ function MapPageInner() {
           {(contextLayer ? CONTEXT[contextLayer] : CRIME_HEADING).title}
         </h1>
         <p className="mt-1 text-sm text-[var(--fg-muted)]">
-          {(contextLayer ? CONTEXT[contextLayer] : CRIME_HEADING).subtitle}
+          {contextLayer
+            ? CONTEXT[contextLayer].subtitle
+            : `${sel.group === "all" ? "All crime (excl. ASB)" : sel.group}, ${periodLabel}`}
         </p>
       </header>
 
@@ -644,8 +761,7 @@ function MapPageInner() {
           </select>
         </div>
 
-        {sel.layer === "crime" && (<>
-        {/* Crime group */}
+        {/* Crime group — shown on all layers */}
         <div className="flex flex-col gap-1 min-w-[180px]">
           <label className="text-xs text-[var(--fg-muted)]" htmlFor="map-group">Crime group</label>
           {!metaLoaded ? (
@@ -658,15 +774,19 @@ function MapPageInner() {
               onChange={(e) => setParam("group", e.target.value)}
             >
               <option value="all">All crime (excl. ASB)</option>
-              {crimeGroups.map((g) => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-              <option value="asb">Anti-social behaviour</option>
+              {crimeGroups.map((g) => {
+                const issue = isGroupDisabledForPeriod(g, sel.period, endMonth, issues);
+                return (
+                  <option key={g} value={g} disabled={!!issue}>
+                    {g}{issue ? " (coverage gap)" : ""}
+                  </option>
+                );
+              })}
             </select>
           )}
         </div>
 
-        {/* Period */}
+        {/* Period — shown on all layers */}
         <div className="flex flex-col gap-1">
           <label className="text-xs text-[var(--fg-muted)]" htmlFor="map-period">Period</label>
           <select
@@ -675,29 +795,34 @@ function MapPageInner() {
             value={sel.period}
             onChange={(e) => setParam("period", e.target.value)}
           >
-            <option value="12m">12 months</option>
-            <option value="1m">Single month</option>
+            <option value="12m">Last 12 months</option>
+            {Array.from({ length: maxCalendarYear - 2011 + 1 }, (_, i) => maxCalendarYear - i).map((y) => (
+              <option key={y} value={String(y)}>{y}</option>
+            ))}
           </select>
         </div>
 
-        {/* Ending month */}
-        <div className="flex flex-col gap-1 min-w-[140px]">
-          <label className="text-xs text-[var(--fg-muted)]" htmlFor="map-end">Ending month</label>
-          {!metaLoaded ? (
-            <Skeleton className="h-9 w-36" />
-          ) : (
-            <select
-              id="map-end"
-              className={controlClass}
-              value={sel.end || availableMonths[0]}
-              onChange={(e) => setParam("end", e.target.value)}
-            >
-              {availableMonths.map((m) => (
-                <option key={m} value={m}>{formatMonth(m)}</option>
-              ))}
-            </select>
-          )}
-        </div>
+        {sel.layer === "crime" && (<>
+        {/* Ending month — only for last-12-months */}
+        {sel.period === "12m" && (
+          <div className="flex flex-col gap-1 min-w-[140px]">
+            <label className="text-xs text-[var(--fg-muted)]" htmlFor="map-end">Ending month</label>
+            {!metaLoaded ? (
+              <Skeleton className="h-9 w-36" />
+            ) : (
+              <select
+                id="map-end"
+                className={controlClass}
+                value={sel.end || availableMonths[0]}
+                onChange={(e) => setParam("end", e.target.value)}
+              >
+                {availableMonths.map((m) => (
+                  <option key={m} value={m}>{formatMonth(m)}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
         {/* Measure */}
         <div className="flex flex-col gap-1">
@@ -721,13 +846,20 @@ function MapPageInner() {
       )}
 
       {/* Coverage gap notice */}
-      {sel.layer === "crime" && relevantIssues.length > 0 && endMonth && (
+      {relevantIssues.length > 0 && endMonth && (
         <CoverageNotice
           issues={issues}
           group={sel.group}
           endMonth={endMonth}
           windowMonths={windowMonths}
         />
+      )}
+
+      {/* Small-numbers warning (median LSOA count < 5) */}
+      {sel.layer === "crime" && medianCount !== null && medianCount < 5 && (
+        <div className="rounded border border-blue-300 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 p-3 mb-4 text-xs text-blue-800 dark:text-blue-200">
+          The median LSOA recorded {medianCount < 1 ? "fewer than 1" : `about ${Math.round(medianCount)}`} {sel.group === "all" ? "offences" : `${sel.group.toLowerCase()} offences`} in this period. Rates for rare crimes are noisy; small differences between areas may be random.
+        </div>
       )}
 
       {/* Map + legend */}
@@ -761,6 +893,7 @@ function MapPageInner() {
               fixed={fixed}
               ariaLabel={ariaLabel}
               dark={dark}
+              rateLabel={rateLabel}
             />
           </div>
         )}
@@ -784,7 +917,9 @@ function MapPageInner() {
               lowPopColor={classification.lowPopColor}
               measure={sel.measure}
               showLowPop={sel.measure === "rate"}
-              windowLabel={windowLabel}
+              title={sel.measure === "rate"
+                ? rateLabel
+                : `${sel.group === "all" ? "Crime" : sel.group} count, ${windowLabel}`}
             />
           </div>
         )}
@@ -795,10 +930,34 @@ function MapPageInner() {
       {contextLayer && (
         <div className="mt-6">
           <p className="mb-2 text-sm text-[var(--fg-muted)]">
-            Crime rate by band of the layer above (12 months; excludes ASB and crime groups with a police.uk coverage gap).
+            {sel.group === "all" ? "Crime rate" : sel.group} per 1,000 residents by {CONTEXT[contextLayer].legendTitle.toLowerCase()} ({periodLabel}{sel.group === "all" ? "; excludes ASB and coverage-gap groups" : ""}).
           </p>
-          <BinnedRateChart factor={contextLayer} compact />
+          <BinnedRateChart
+            factor={contextLayer}
+            compact
+            group={sel.group}
+            period={sel.period}
+            latestMonth={availableMonths[0] ?? ""}
+          />
         </div>
+      )}
+
+      {/* Crime-type breakdown: station and parkdist layers only */}
+      {(contextLayer === "station" || contextLayer === "parkdist") && availableMonths[0] && (
+        <div className="mt-6">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-[var(--fg-muted)] mb-3">
+            Crime-type breakdown
+          </h2>
+          <CrimeBreakdownChart
+            factor={contextLayer}
+            period={sel.period}
+            latestMonth={availableMonths[0]}
+          />
+        </div>
+      )}
+
+      {crimeSummary && (
+        <p className="mt-4 text-sm text-[var(--fg)]">{crimeSummary}</p>
       )}
 
       {/* Top 10 */}

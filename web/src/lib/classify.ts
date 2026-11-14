@@ -66,6 +66,70 @@ export function classify(values: number[], isDark: boolean): Classification {
   return { breaks, lowPopColor };
 }
 
+// Cut points splitting `values` into `classes` groups of equal size, with the
+// same linear interpolation as classify().
+export function quantileEdges(values: number[], classes = 7): number[] {
+  const sorted = [...values].sort((a, b) => a - b);
+  const n = sorted.length;
+  if (n === 0) return [];
+  const edges: number[] = [];
+  for (let i = 1; i < classes; i++) {
+    const idx = (i / classes) * (n - 1);
+    const lo = Math.floor(idx);
+    const hi = Math.ceil(idx);
+    edges.push(sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo));
+  }
+  return edges;
+}
+
+// Fewest decimals (at least 1) at which no two edges print the same and no
+// non-zero edge prints as zero.
+function edgeDecimals(edges: number[]): number {
+  for (let d = 1; d < 4; d++) {
+    const r = edges.map((e) => Number(e.toFixed(d)));
+    if (new Set(r).size === r.length && r.every((x, i) => x !== 0 || edges[i] === 0)) return d;
+  }
+  return 4;
+}
+
+export type ReferenceClassification = Classification & {
+  breaks: LabelledClassBreak[];
+  decimals: number;
+};
+
+// Classes from fixed cut points, upper bound inclusive. Duplicate cut points
+// are merged so only distinct classes remain; values below the first cut fall
+// in the bottom class and values above the last in the top class.
+export function referenceClasses(edges: number[], isDark: boolean): ReferenceClassification {
+  const palette = isDark ? mapSeq.dark : mapSeq.light;
+  const lowPopColor = isDark ? mapSeq.lowPop.dark : mapSeq.lowPop.light;
+  const cuts = [...new Set(edges)].sort((a, b) => a - b);
+  const decimals = edgeDecimals(cuts);
+  const f = (v: number) =>
+    v === 0 ? "0" : v.toLocaleString("en-GB", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const m = cuts.length + 1;
+
+  const breaks: LabelledClassBreak[] = Array.from({ length: m }, (_, i) => {
+    const min = i === 0 ? -Infinity : cuts[i - 1];
+    const max = i === m - 1 ? Infinity : cuts[i];
+    let label: string;
+    if (m === 1) label = "All values";
+    else if (i === m - 1) label = `${f(min)}+`;
+    else if (i === 0) label = max === 0 ? "0" : `0–${f(max)}`;
+    else label = `${f(min)}–${f(max)}`;
+    return {
+      min,
+      max,
+      label,
+      color: m === 1
+        ? palette[palette.length - 1]
+        : palette[Math.round((i / (m - 1)) * (palette.length - 1))],
+    };
+  });
+
+  return { breaks, lowPopColor, decimals };
+}
+
 export function classifyValue(value: number, breaks: ClassBreak[]): string {
   if (breaks.length === 0) return "#cccccc";
   for (let i = 0; i < breaks.length - 1; i++) {

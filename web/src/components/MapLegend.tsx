@@ -1,11 +1,11 @@
 import type { ClassBreak, LabelledClassBreak } from "@/lib/classify";
 
 type Props = {
-  breaks: ClassBreak[];
+  breaks: (ClassBreak | LabelledClassBreak)[];
   lowPopColor: string;
   measure: "rate" | "count";
   showLowPop: boolean;
-  windowLabel: string; // e.g. "12 months to Sep 2026"
+  title: string;
 };
 
 function fmtRate(v: number): string {
@@ -42,9 +42,9 @@ function buildCountRows(breaks: ClassBreak[]): LegendRow[] {
   });
 }
 
-function buildRateRows(breaks: ClassBreak[]): LegendRow[] {
+function buildRateRows(breaks: (ClassBreak | LabelledClassBreak)[]): LegendRow[] {
   return breaks.map((b, i) => ({
-    label:
+    label: "label" in b ? b.label :
       i === breaks.length - 1
         ? `${fmtRate(b.min)}+`
         : `${fmtRate(b.min)}–${fmtRate(b.max)}`,
@@ -52,12 +52,7 @@ function buildRateRows(breaks: ClassBreak[]): LegendRow[] {
   }));
 }
 
-export default function MapLegend({ breaks, lowPopColor, measure, showLowPop, windowLabel }: Props) {
-  const title =
-    measure === "rate"
-      ? `Crimes per 1,000 residents, ${windowLabel}`
-      : `Crime count, ${windowLabel}`;
-
+export default function MapLegend({ breaks, lowPopColor, measure, showLowPop, title }: Props) {
   const rows = measure === "count" ? buildCountRows(breaks) : buildRateRows(breaks);
 
   return (
