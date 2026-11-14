@@ -219,3 +219,231 @@ export function strengthLabel(rho: number): string {
   if (a < 0.5) return "moderate";
   return "strong";
 }
+
+// ---- Selection-based queries (map page group + period) ------------------
+
+function existingPartitions(index: ExportIndex, table: string, years: number[]): number[] {
+  return years.filter((y) =>
+    index.files.some((f) => f.path === `${table}/year=${y}/data_0.parquet`)
+  );
+}
+
+function crimePartitions(index: ExportIndex, period: string, latestMonth: string): number[] {
+  if (period === "12m") {
+    const [ey, em] = latestMonth.split("-").map(Number);
+    const startY = new Date(ey, em - 1 - 12, 1).getFullYear();
+    const years: number[] = [];
+    for (let y = startY; y <= ey; y++) years.push(y);
+    return existingPartitions(index, "fct_police_uk_crimes_lsoa_month", years);
+  }
+  return existingPartitions(index, "fct_police_uk_crimes_lsoa_month", [Number(period)]);
+}
+
+function popPartitions(index: ExportIndex, period: string, latestMonth: string): number[] {
+  const y = period === "12m" ? Number(latestMonth.split("-")[0]) : Number(period);
+  return existingPartitions(index, "fct_police_uk_lsoa_month", [y]);
+}
+
+export function lsoaCtesForSelection(
+  index: ExportIndex,
+  group: string,
+  period: string,
+  latestMonth: string,
+): string {
+  const effectiveEnd = period === "12m" ? latestMonth : `${period}-12`;
+  const cYears = crimePartitions(index, period, latestMonth);
+  const pYears = popPartitions(index, period, latestMonth);
+
+  const CLM = parquetYears(index, "fct_police_uk_crimes_lsoa_month", cYears);
+  const LM = parquetYears(index, "fct_police_uk_lsoa_month", pYears);
+  const DIM = parquet(index, "dim_lsoa");
+  const KI = parquet(index, "rpt_known_issues");
+  const cols = [...new Set(Object.values(FACTORS).map((f) => f.column))];
+
+  const isYear = period !== "12m";
+  const popMonth = isYear ? `date '${period}-01-01'` : "mx.m";
+
+  const crimeFilter = group === "all"
+    ? `crime_group is distinct from 'Anti-social behaviour'
+        and coalesce(crime_group, 'Unmapped') not in (select crime_group from excluded)`
+    : `crime_group = '${group.replace(/'/g, "''")}'`;
+
+  return `
+    clm as (select * from ${CLM}),
+    mx as (select date '${effectiveEnd}-01' as m),
+    excluded as (
+      select distinct scope as crime_group
+      from ${KI}, mx
+      where issue_type = 'coverage gap'
+        and start_month <= mx.m
+        and coalesce(end_month, date '9999-12-01') > (mx.m - interval 12 month)::date
+    ),
+    crimes as (
+      select lsoa21_code, sum(crime_count)::double as n
+      from clm, mx
+      where month > (mx.m - interval 12 month)::date
+        and month <= mx.m
+        and ${crimeFilter}
+      group by 1
+    ),
+    pop as (
+      select lsoa21_code, population::double as pop, coalesce(is_low_population, false) as low_pop
+      from ${LM}, mx
+      where month = ${popMonth}
+    ),
+    lsoa_all as (
+      select
+        d.lsoa21_code,
+        case when p.pop > 0 then coalesce(c.n, 0) * 1000.0 / p.pop end as rate_per_1000,
+        ${cols.map((c) => `d.${c}`).join(",\n        ")},
+        p.low_pop,
+        p.pop,
+        coalesce(c.n, 0) as crimes
+      from ${DIM} as d
+      join pop as p using (lsoa21_code)
+      left join crimes as c using (lsoa21_code)
+    ),
+    lsoa as (
+      select * exclude (low_pop, pop, crimes)
+      from lsoa_all
+      where not low_pop
+    )`;
+}
+
+export function buildBinnedRateSqlForSelection(
+  index: ExportIndex,
+  factor: Factor,
+  group: string,
+  period: string,
+  latestMonth: string,
+): string {
+  const { column, preset } = FACTORS[factor];
+  return `
+    with ${lsoaCtesForSelection(index, group, period, latestMonth)},
+    x as (
+      select rate_per_1000 as rate, ${column} as v, ${bandExpr(column, preset)} as band
+      from lsoa
+      where rate_per_1000 is not null and ${column} is not null
+    ),
+    s as (
+      select corr(rv, rr) as spearman
+      from (select ${avgRank("v")} as rv, ${avgRank("rate")} as rr from x)
+    )
+    select
+      band,
+      count(*) as n,
+      quantile_cont(rate, 0.25) as p25,
+      quantile_cont(rate, 0.5) as median,
+      quantile_cont(rate, 0.75) as p75,
+      any_value(s.spearman) as spearman,
+      strftime(any_value(mx.m), '%Y-%m') as latest_month,
+      (select string_agg(crime_group, ', ' order by crime_group) from excluded) as excluded_groups,
+      (select count(*) from pop where low_pop) as low_pop_n
+    from x, s, mx
+    group by band
+    order by band`;
+}
+
+export type BreakdownRow = {
+  crime_group: string;
+  nearest_median: number;
+  furthest_median: number;
+  ratio: number | null;
+  spearman: number | null;
+};
+
+export function buildBreakdownSql(
+  index: ExportIndex,
+  factor: Factor,
+  period: string,
+  latestMonth: string,
+): string {
+  const { column, preset } = FACTORS[factor];
+  const maxBand = preset.edges.length;
+  const effectiveEnd = period === "12m" ? latestMonth : `${period}-12`;
+  const cYears = crimePartitions(index, period, latestMonth);
+  const pYears = popPartitions(index, period, latestMonth);
+
+  const CLM = parquetYears(index, "fct_police_uk_crimes_lsoa_month", cYears);
+  const LM = parquetYears(index, "fct_police_uk_lsoa_month", pYears);
+  const DIM = parquet(index, "dim_lsoa");
+  const KI = parquet(index, "rpt_known_issues");
+
+  const isYear = period !== "12m";
+  const popMonth = isYear ? `date '${period}-01-01'` : "mx.m";
+
+  return `
+    with
+    clm as (select * from ${CLM}),
+    mx as (select date '${effectiveEnd}-01' as m),
+    excluded as (
+      select distinct scope as crime_group
+      from ${KI}, mx
+      where issue_type = 'coverage gap'
+        and start_month <= mx.m
+        and coalesce(end_month, date '9999-12-01') > (mx.m - interval 12 month)::date
+    ),
+    pop as (
+      select lsoa21_code, population::double as pop, coalesce(is_low_population, false) as low_pop
+      from ${LM}, mx
+      where month = ${popMonth}
+    ),
+    group_crimes as (
+      select crime_group, lsoa21_code, sum(crime_count)::double as n
+      from clm, mx
+      where month > (mx.m - interval 12 month)::date
+        and month <= mx.m
+        and crime_group is distinct from 'Anti-social behaviour'
+        and coalesce(crime_group, 'Unmapped') not in (select crime_group from excluded)
+      group by crime_group, lsoa21_code
+    ),
+    groups as (select distinct crime_group from group_crimes),
+    -- Every LSOA counts for every group, with zero where it had none
+    rates as (
+      select
+        g.crime_group,
+        coalesce(gc.n, 0) * 1000.0 / p.pop as rate,
+        d.${column} as v,
+        ${bandExpr(`d.${column}`, preset)} as band
+      from pop p
+      join ${DIM} as d using (lsoa21_code)
+      cross join groups g
+      left join group_crimes gc
+        on gc.crime_group = g.crime_group and gc.lsoa21_code = p.lsoa21_code
+      where not p.low_pop and p.pop > 0 and d.${column} is not null
+    ),
+    band_stats as (
+      select crime_group, band, quantile_cont(rate, 0.5) as median_rate
+      from rates group by crime_group, band
+    ),
+    endpoints as (
+      select
+        crime_group,
+        max(case when band = 0 then median_rate end) as nearest_median,
+        max(case when band = ${maxBand} then median_rate end) as furthest_median
+      from band_stats
+      group by crime_group
+    ),
+    spear as (
+      select crime_group, corr(rv, rr) as spearman
+      from (
+        select crime_group,
+          (rank() over (partition by crime_group order by v)
+           + (count(*) over (partition by crime_group, v) - 1) / 2.0) as rv,
+          (rank() over (partition by crime_group order by rate)
+           + (count(*) over (partition by crime_group, rate) - 1) / 2.0) as rr
+        from rates
+      ) sub
+      group by crime_group
+    )
+    select
+      e.crime_group,
+      e.nearest_median,
+      e.furthest_median,
+      e.nearest_median / nullif(e.furthest_median, 0) as ratio,
+      s.spearman
+    from endpoints e
+    left join spear s using (crime_group)
+    where e.nearest_median is not null and e.furthest_median is not null
+    order by ratio desc`;
+}

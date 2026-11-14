@@ -78,6 +78,8 @@ type Props = {
   fixed: FixedClassification | null;
   ariaLabel: string;
   dark: boolean;
+  // e.g. "Theft per 1,000 residents"
+  rateLabel: string;
 };
 
 type Paint = Pick<Props, "layer" | "values" | "dim" | "breaks" | "lowPopColor" | "measure" | "fixed">;
@@ -193,7 +195,7 @@ function addDataLayers(map: MapLibreMap, dark: boolean) {
   }
 }
 
-export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measure, fixed, ariaLabel, dark }: Props) {
+export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measure, fixed, ariaLabel, dark, rateLabel }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const paintRef = useRef<Paint>({ layer, values, dim, breaks, lowPopColor, measure, fixed });
@@ -353,7 +355,7 @@ export default function LsoaMap({ layer, values, dim, breaks, lowPopColor, measu
         >
           <p className="font-medium text-[var(--fg)] leading-tight">{tooltipData.d.lsoa21_name}</p>
           <p className="text-[var(--fg-muted)] mt-0.5">{tooltipData.d.borough_name}</p>
-          <TooltipBody t={tooltipData} layer={layer} measure={measure} />
+          <TooltipBody t={tooltipData} layer={layer} measure={measure} rateLabel={rateLabel} />
         </div>
       )}
     </div>
@@ -365,7 +367,9 @@ const fmt1 = (n: number) => n.toLocaleString("en-GB", { minimumFractionDigits: 1
 
 // Rendered from the current layer and values, not the ones at hover time, so
 // switching layers while hovering updates the tooltip without moving the mouse.
-function TooltipBody({ t, layer, measure }: { t: TooltipData; layer: MapLayer; measure: "rate" | "count" }) {
+function TooltipBody({ t, layer, measure, rateLabel }: {
+  t: TooltipData; layer: MapLayer; measure: "rate" | "count"; rateLabel: string;
+}) {
   const { d } = t;
   const main = "tabular-nums mt-1 text-[var(--fg)]";
   const sub = "tabular-nums text-[var(--fg-muted)] mt-0.5";
@@ -379,7 +383,7 @@ function TooltipBody({ t, layer, measure }: { t: TooltipData; layer: MapLayer; m
           {t.low_pop && measure === "rate" ? (
             <p className="text-[var(--fg-muted)] mt-0.5 italic">Too few residents for a reliable rate</p>
           ) : t.per_1000 != null ? (
-            <p className={sub}>{fmt1(t.per_1000)} per 1,000</p>
+            <p className={sub}>{rateLabel}: {fmt1(t.per_1000)}</p>
           ) : null}
           {d.imd_decile_2025 != null && <p className={sub}>IMD decile {d.imd_decile_2025}</p>}
         </>
