@@ -21,9 +21,11 @@ jobs:
     timeout-minutes: 330
     outputs: { cache_saved: "${{ steps.save.outcome == 'success' }}" }
     steps:
-      # Free disk by removing preinstalled toolchains this job doesn't use
+      # Free disk by removing preinstalled toolchains and docker images this job doesn't use
       - run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/boost /usr/share/swift /usr/local/.ghcup /opt/microsoft
+          docker image prune --all --force || true
           df -h
       # Check out the repo
       - uses: actions/checkout@v5
@@ -88,23 +90,26 @@ jobs:
         with:
           path: data/bronze
           key: bronze-${{ github.run_id }}
-      # Disk usage before dbt build
-      - run: df -h
       # Install dbt packages, then build; spatial is installed and loaded by dbt-duckdb from profiles.yml
+      # --threads 2 limits concurrent models so DuckDB's temp spill in data/warehouse.duckdb.tmp fits on the runner disk
       - id: dbt
         working-directory: transform
         run: |
           dbt deps
+          df -h
           set +e
-          dbt build --profiles-dir .
+          dbt build --profiles-dir . --threads 2
           rc=$?
           set -e
           count=$(python -c "import json; r=json.load(open('target/run_results.json'))['results']; print(f\"{sum(x['status'] in ('pass','success') for x in r)}/{len(r)}\")" || echo "no results")
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "dbt build: $count"
           exit "$rc"
-      # Disk usage after dbt build, also when it failed
-      - { if: always(), run: df -h }
+      # Disk usage after dbt build, also when it failed; the temp dir may already be gone
+      - if: always()
+        run: |
+          df -h
+          du -sh data data/warehouse.duckdb.tmp 2>/dev/null || true
       # Export gold tables and index.json for the web app
       - run: python export/export_web.py
       # Compare per-file sha256 with the live index; tests.json is skipped because it embeds timings and generated_at
