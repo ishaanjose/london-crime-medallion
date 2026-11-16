@@ -27,22 +27,29 @@ entrances as (
     where access.access_type <> 'Motor Vehicle'
 ),
 -- ST_DWithin lets DuckDB plan a spatial join instead of a full cross join
-nearest as (
+entrance_distances as (
     select
         lsoas.lsoa21_code,
-        round(min(ST_Distance(lsoas.centroid_bng, entrances.geometry)))::integer
-            as nearest_park_entrance_m,
-        arg_min(entrances.site_id, ST_Distance(lsoas.centroid_bng, entrances.geometry))
-            as nearest_park_site_id,
-        -- arg_min skips null names and would return a different, named park; arg_min_null doesn't
-        arg_min_null(entrances.name, ST_Distance(lsoas.centroid_bng, entrances.geometry))
-            as nearest_park_name,
-        arg_min(entrances.site_function, ST_Distance(lsoas.centroid_bng, entrances.geometry))
-            as nearest_park_function
+        entrances.site_id,
+        entrances.name,
+        entrances.site_function,
+        ST_Distance(lsoas.centroid_bng, entrances.geometry) as distance_m
     from lsoas
     inner join entrances
         on ST_DWithin(lsoas.centroid_bng, entrances.geometry, 5000)
-    group by lsoas.lsoa21_code
+),
+-- entrances of different sites at exactly the same distance break the tie on site_id, so the pick
+-- doesn't depend on aggregation order and id, name and function all describe the same site
+nearest as (
+    select
+        lsoa21_code,
+        round(min(distance_m))::integer as nearest_park_entrance_m,
+        arg_min(site_id, (distance_m, site_id)) as nearest_park_site_id,
+        -- arg_min skips null names and would return a different, named park; arg_min_null doesn't
+        arg_min_null(name, (distance_m, site_id)) as nearest_park_name,
+        arg_min(site_function, (distance_m, site_id)) as nearest_park_function
+    from entrance_distances
+    group by lsoa21_code
 ),
 -- union before measuring: OS sites overlap (playing fields inside parks), so summing would double count
 area as (

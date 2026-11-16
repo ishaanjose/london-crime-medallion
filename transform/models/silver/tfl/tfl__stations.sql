@@ -8,7 +8,8 @@ with stations as (
 grouped as (
     select
         coalesce(hub_naptan_code, naptan_id) as station_key,
-        arg_min(name, length(name)) as name,
+        -- shortest name; alphabetical among names of the same length, so the pick is stable
+        arg_min(name, (length(name), name)) as name,
         avg(latitude) as latitude,
         avg(longitude) as longitude,
         list(distinct mode order by mode) as modes,

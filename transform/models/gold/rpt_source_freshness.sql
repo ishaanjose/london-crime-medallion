@@ -7,7 +7,10 @@ with ingestions as (
         -- newest by publish date, not ingest time: police.uk archives get backfilled out of order,
         -- so the last one ingested is often an old one; ingest time breaks ties and covers
         -- sources with no publish date
-        arg_max(version, {'published_at': published_at, 'ingested_at': ingested_at}) as latest_version,
+        -- version settles a full tie, so the pick is stable
+        arg_max(
+            version, {'published_at': published_at, 'ingested_at': ingested_at, 'version': version}
+        ) as latest_version,
         max(published_at) as latest_published_at,
         max(ingested_at) as last_ingested_at,
         count(*) as ingestions
