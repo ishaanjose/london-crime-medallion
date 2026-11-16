@@ -1,6 +1,6 @@
 import { createWriteStream } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
-import { dirname, relative, resolve, sep } from "node:path";
+import { basename, dirname, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import yauzl from "yauzl";
 
@@ -29,7 +29,13 @@ export async function extractLondonFiles(
   zipPath: string,
   outDir: string,
 ): Promise<string[]> {
-  return extractMatching(zipPath, outDir, LONDON_FILE);
+  const paths = await extractMatching(zipPath, outDir, LONDON_FILE);
+  if (paths.length === 0) {
+    throw new Error(
+      `${basename(zipPath)}: no Metropolitan or City of London street/outcomes CSVs matched ${LONDON_FILE}; police.uk may have renamed the force files`,
+    );
+  }
+  return paths;
 }
 
 export async function extractMatching(

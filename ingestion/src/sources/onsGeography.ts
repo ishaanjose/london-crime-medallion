@@ -12,6 +12,75 @@ export const LSOA11_LSOA21_LAD22_LOOKUP_LAYER =
 export const ONSPD_LATEST_LAYER =
   "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/ONSPD_Online_latest_Postcode_Centroids/FeatureServer/0";
 
+export const LSOA21_BOUNDARY_FIELDS = ["LSOA21CD", "LSOA21NM"];
+export const LSOA21_CENTROID_FIELDS = ["CODE"];
+export const POSTCODE_FIELDS = [
+  "PCDS", "DOINTR", "DOTERM", "USRTYPIND", "OA21CD",
+  "LSOA21CD", "MSOA21CD", "LSOA11CD", "LAT", "LONG",
+];
+// The lookup is fetched with outFields "*"; these are the columns transform reads.
+const LSOA_LOOKUP_FIELDS = [
+  "LSOA11CD", "LSOA11NM", "LSOA21CD", "LSOA21NM", "CHGIND", "LAD22CD", "LAD22NM",
+];
+export const POSTCODE_REGION_FIELD = /^RGN\d{2}CD$/;
+
+// England and Wales has exactly 35,672 LSOAs (2021).
+const LSOA21_COUNT = 35672;
+
+export interface OnsLayerSource {
+  name: string;
+  url: string;
+  // Words for an arcgis.com item search if the layer moves.
+  searchTerms: string;
+  requiredFields: (string | RegExp)[];
+  minCount: number;
+  maxCount: number;
+}
+
+export const ONS_LAYER_SOURCES: OnsLayerSource[] = [
+  {
+    name: "lsoa21 boundaries",
+    url: LSOA21_BOUNDARIES_LAYER,
+    searchTerms: "Lower layer Super Output Area Boundary 2021",
+    requiredFields: LSOA21_BOUNDARY_FIELDS,
+    minCount: LSOA21_COUNT,
+    maxCount: LSOA21_COUNT,
+  },
+  {
+    name: "lsoa21 population centroids",
+    url: LSOA21_POP_CENTROIDS_LAYER,
+    searchTerms: "Lower layer Super Output Area Population Weighted Centroid",
+    requiredFields: LSOA21_CENTROID_FIELDS,
+    minCount: LSOA21_COUNT,
+    maxCount: LSOA21_COUNT,
+  },
+  {
+    name: "lsoa lookup",
+    url: LSOA11_LSOA21_LAD22_LOOKUP_LAYER,
+    searchTerms: "LSOA 2011 LSOA 2021 Local Authority District Lookup",
+    requiredFields: LSOA_LOOKUP_FIELDS,
+    minCount: LSOA21_COUNT,
+    maxCount: 40000,
+  },
+  {
+    name: "postcodes",
+    url: ONSPD_LATEST_LAYER,
+    searchTerms: "ONSPD Postcode Centroids",
+    requiredFields: [...POSTCODE_FIELDS, POSTCODE_REGION_FIELD],
+    minCount: 2_500_000,
+    maxCount: 3_500_000,
+  },
+];
+
+// Current layers sit under ONSGeography_data; moved ones appear under ONSGeography.
+export function arcgisSearchUrl(searchTerms: string): string {
+  const params = new URLSearchParams({
+    q: `${searchTerms} (owner:ONSGeography OR owner:ONSGeography_data)`,
+    f: "json",
+  });
+  return `https://www.arcgis.com/sharing/rest/search?${params}`;
+}
+
 const LAYER_MOVED_HINT =
   "The service may have moved or become private; find the current public layer via arcgis.com sharing search, owner ONSGeography";
 

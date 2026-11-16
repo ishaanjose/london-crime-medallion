@@ -111,6 +111,14 @@ export async function hasIngested(md5: string): Promise<boolean> {
   return entries.some((entry) => entry.md5 === md5);
 }
 
+export async function getArchiveMd5(
+  archiveName: string,
+): Promise<string | undefined> {
+  const entries = await readEntries<ManifestEntry>(POLICE_UK_MANIFEST_PATH);
+  return entries.filter((entry) => entry.archiveName === archiveName).at(-1)
+    ?.md5;
+}
+
 export async function writeArchiveInfo(
   archiveInfo: ArchiveInfo,
   archiveName: string,

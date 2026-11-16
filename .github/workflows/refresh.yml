@@ -45,6 +45,21 @@ jobs:
           path: data/bronze
           key: bronze-${{ github.run_id }}
           restore-keys: bronze-
+      # Check upstream sources; a FAIL is surfaced as a warning and never blocks ingest
+      - id: check_sources
+        working-directory: ingestion
+        run: |
+          set +e
+          npm run check:sources 2>&1 | tee "$RUNNER_TEMP/check_sources.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            grep '^FAIL' "$RUNNER_TEMP/check_sources.log" | while IFS= read -r line; do echo "::warning::$line"; done
+            echo "result=failed" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=ok" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
       # Ingest all sources; a single failed source is reported, and the run stops only if a bronze source is missing
       - id: ingest
         working-directory: ingestion
@@ -118,12 +133,13 @@ jobs:
       # Write the run summary
       - if: always()
         env:
+          SOURCES: ${{ steps.check_sources.outputs.result || 'not run' }}
           INGEST: ${{ steps.ingest.outputs.result || steps.ingest.outcome }}
           TESTS: ${{ steps.dbt.outputs.count || 'not run' }}
           CHANGED: ${{ steps.compare.outputs.changed }}
           DEPLOY: ${{ steps.deploy.outcome }}
         run: |
-          { echo "### Refresh"; echo "- ingest: $INGEST"; echo "- dbt build: $TESTS"
+          { echo "### Refresh"; echo "- sources: $SOURCES"; echo "- ingest: $INGEST"; echo "- dbt build: $TESTS"
             if [ "$CHANGED" = "false" ]; then echo "- deploy: no change"; else echo "- deploy: ${DEPLOY:-not reached}"; fi
           } >> "$GITHUB_STEP_SUMMARY"
 

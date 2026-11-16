@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "ingest": "tsx src/index.ts"
+    "ingest": "tsx src/index.ts",
+    "check:sources": "tsx src/checkSources.ts"
   },
   "keywords": [],
   "author": "",
