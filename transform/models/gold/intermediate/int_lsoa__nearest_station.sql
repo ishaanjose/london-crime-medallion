@@ -25,12 +25,14 @@ pairs as (
     from lsoas
     cross join stations
 )
+-- two stations at exactly the same distance break the tie on station_key and network, so the pick
+-- doesn't depend on aggregation order and name, key and network all describe the same station
 select
     lsoa21_code,
     round(min(distance_m))::integer as nearest_station_m,
-    arg_min(name, distance_m) as nearest_station_name,
-    arg_min(station_key, distance_m) as nearest_station_key,
-    arg_min(network, distance_m) as nearest_station_network,
+    arg_min(name, (distance_m, station_key, network)) as nearest_station_name,
+    arg_min(station_key, (distance_m, station_key, network)) as nearest_station_key,
+    arg_min(network, (distance_m, station_key, network)) as nearest_station_network,
     count(*) filter (where distance_m <= 1000) as stations_within_1km
 from pairs
 group by lsoa21_code
