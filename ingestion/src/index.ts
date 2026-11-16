@@ -6,14 +6,29 @@ import { ingestOnsGeography } from "./ingestOnsGeography.js";
 import { ingestTfl } from "./ingestTfl.js";
 import { ingestGreenspace } from "./ingestGreenspace.js";
 import { ingestNaptan } from "./ingestNaptan.js";
-import {
-  archiveUrl,
-  BACKFILL_ARCHIVES,
-  LATEST_ARCHIVE_URL,
-} from "./sources/policeUk.js";
+import { missingArchivesMessage, planBackfill } from "./policeUkBackfill.js";
+import { archiveUrl, LATEST_ARCHIVE_URL } from "./sources/policeUk.js";
+
+const failed: string[] = [];
+
+let backfillToIngest: string[] = [];
+try {
+  const backfill = await planBackfill();
+  for (const month of backfill.upToDate) {
+    console.log(`police_uk ${month}: up to date`);
+  }
+  if (backfill.missing.length > 0) {
+    console.error(`police_uk backfill: ${missingArchivesMessage(backfill.missing)}`);
+    failed.push(...backfill.missing.map((month) => `police_uk ${month}`));
+  }
+  backfillToIngest = backfill.toIngest;
+} catch (error) {
+  console.error("police_uk backfill: failed", error);
+  failed.push("police_uk backfill");
+}
 
 const sources: [string, () => Promise<void>][] = [
-  ...BACKFILL_ARCHIVES.map((month): [string, () => Promise<void>] => [
+  ...backfillToIngest.map((month): [string, () => Promise<void>] => [
     `police_uk ${month}`,
     () => ingestArchive(archiveUrl(month), month),
   ]),
@@ -27,7 +42,6 @@ const sources: [string, () => Promise<void>][] = [
   ["naptan rail", ingestNaptan],
 ];
 
-const failed: string[] = [];
 for (const [name, ingest] of sources) {
   try {
     await ingest();

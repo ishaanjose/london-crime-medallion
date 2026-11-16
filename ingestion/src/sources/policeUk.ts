@@ -16,6 +16,30 @@ export const BACKFILL_ARCHIVES = [
   "2021-09", "2022-09", "2023-09", "2024-09", "2025-09",
 ];
 
+export const ARCHIVE_LIST_URL = "https://data.police.uk/data/archive/";
+
+// Months police.uk currently links from its archive page, e.g. "2017-04".
+export async function getHostedArchiveMonths(): Promise<Set<string>> {
+  const html = await withRetry(async () => {
+    const response = await fetch(ARCHIVE_LIST_URL);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch police.uk archive list: ${response.status} ${response.statusText}`,
+      );
+    }
+    return response.text();
+  });
+  const months = new Set(
+    Array.from(html.matchAll(/archive\/(\d{4}-\d{2})\.zip/g), (match) => match[1]!),
+  );
+  if (months.size === 0) {
+    throw new Error(
+      `police.uk archive list at ${ARCHIVE_LIST_URL} has no archive links; the page format may have changed`,
+    );
+  }
+  return months;
+}
+
 export interface ArchiveInfo {
   md5: string;
   lastModified: Date;

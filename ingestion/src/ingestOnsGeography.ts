@@ -11,9 +11,13 @@ import {
   getLayerInfo,
   LSOA11_LSOA21_LAD22_LOOKUP_LAYER,
   LSOA21_BOUNDARIES_LAYER,
+  LSOA21_BOUNDARY_FIELDS,
+  LSOA21_CENTROID_FIELDS,
   LSOA21_POP_CENTROIDS_LAYER,
   findField,
   ONSPD_LATEST_LAYER,
+  POSTCODE_FIELDS,
+  POSTCODE_REGION_FIELD,
 } from "./sources/onsGeography.js";
 import type { LayerInfo } from "./sources/onsGeography.js";
 
@@ -43,7 +47,7 @@ const LAYERS: OnsLayerConfig[] = [
   {
     layerName: "lsoa21 boundaries",
     layerUrl: LSOA21_BOUNDARIES_LAYER,
-    outFields: "LSOA21CD,LSOA21NM",
+    outFields: LSOA21_BOUNDARY_FIELDS.join(","),
     returnGeometry: true,
     format: "geojson",
     extraParams: LONDON_ENVELOPE,
@@ -53,7 +57,7 @@ const LAYERS: OnsLayerConfig[] = [
   {
     layerName: "lsoa21 population centroids",
     layerUrl: LSOA21_POP_CENTROIDS_LAYER,
-    outFields: "CODE",
+    outFields: LSOA21_CENTROID_FIELDS.join(","),
     returnGeometry: true,
     format: "geojson",
     extraParams: LONDON_ENVELOPE,
@@ -76,11 +80,10 @@ const LAYERS: OnsLayerConfig[] = [
   {
     layerName: "postcodes",
     layerUrl: ONSPD_LATEST_LAYER,
-    outFields:
-      "PCDS,DOINTR,DOTERM,USRTYPIND,OA21CD,LSOA21CD,MSOA21CD,LSOA11CD,LAT,LONG",
+    outFields: POSTCODE_FIELDS.join(","),
     returnGeometry: false,
     format: "json",
-    where: (info) => `${findField(info, /^RGN\d{2}CD$/)} = 'E12000007'`,
+    where: (info) => `${findField(info, POSTCODE_REGION_FIELD)} = 'E12000007'`,
     land: (features, editDate, batchId) =>
       landAttributeTable("postcodes", features, editDate, batchId),
   },

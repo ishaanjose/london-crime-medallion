@@ -23,9 +23,68 @@ export const NOMIS_POPULATION_BASE =
 
 export const NOMIS_PAGE_SIZE = 25000;
 
-export function populationUrl(offset: number): string {
+// Bronze history starts at mid-2011; the end year comes from the time codelist.
+export const NOMIS_FIRST_YEAR = 2011;
+// Latest year known when this was written, used only if the codelist lookup fails.
+export const NOMIS_FALLBACK_LAST_YEAR = 2024;
+
+type TimeCodelist = {
+  structure?: {
+    codelists?: {
+      codelist?: Array<{
+        code?: Array<{ value?: unknown }>;
+      }>;
+    } | null;
+  };
+};
+
+export async function getLatestPopulationYear(): Promise<number> {
+  const response = await withRetry(async () => {
+    const response = await fetch(`${NOMIS_POPULATION_BASE}/time.def.sdmx.json`);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch NOMIS population years: ${response.status} ${response.statusText}`,
+      );
+    }
+    return response;
+  });
+
+  const codelist = (await response.json()) as TimeCodelist;
+  const years = (codelist.structure?.codelists?.codelist?.[0]?.code ?? []).map(
+    (code) => Number(code.value),
+  );
+  if (years.length === 0 || years.some((year) => !Number.isInteger(year))) {
+    throw new Error("NOMIS population time codelist has no valid years");
+  }
+  if (!years.includes(NOMIS_FIRST_YEAR)) {
+    throw new Error(
+      `NOMIS population time codelist no longer includes ${NOMIS_FIRST_YEAR}`,
+    );
+  }
+  const latest = Math.max(...years);
+  if (latest < NOMIS_FALLBACK_LAST_YEAR) {
+    throw new Error(
+      `NOMIS population time codelist ends at ${latest}, before ${NOMIS_FALLBACK_LAST_YEAR}`,
+    );
+  }
+  return latest;
+}
+
+export async function getPopulationDateRange(): Promise<string> {
+  try {
+    return `${NOMIS_FIRST_YEAR}-${await getLatestPopulationYear()}`;
+  } catch (error) {
+    const fallback = `${NOMIS_FIRST_YEAR}-${NOMIS_FALLBACK_LAST_YEAR}`;
+    console.warn(
+      `population: WARNING could not read the latest year from NOMIS (${error instanceof Error ? error.message : String(error)}); falling back to ${fallback}`,
+    );
+    return fallback;
+  }
+}
+
+export function populationUrl(offset: number, dateRange: string): string {
   const params = new URLSearchParams({
-    date: "2011-2024",
+    date: dateRange,
     geography: "2013265927TYPE151",
     gender: "0",
     c_age: "200",
@@ -69,12 +128,14 @@ export async function fetchPopulationPages(
   await rm(destDir, { recursive: true, force: true });
   await mkdir(destDir, { recursive: true });
 
+  const dateRange = await getPopulationDateRange();
+  console.log(`population: requesting years ${dateRange}`);
   const paths: string[] = [];
   let offset = 0;
 
   while (true) {
     const response = await withRetry(async () => {
-      const response = await fetch(populationUrl(offset));
+      const response = await fetch(populationUrl(offset, dateRange));
       if (!response.ok) {
         throw new Error(
           `Failed to fetch NOMIS population page: ${response.status} ${response.statusText}`,
