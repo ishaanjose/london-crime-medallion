@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "copy-maplibre-worker": "mkdir -p public/maplibre && cp node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs public/maplibre/",
-    "predev": "npm run copy-maplibre-worker",
-    "prebuild": "npm run copy-maplibre-worker",
+    "prepare-duckdb": "node scripts/prepare-duckdb.mjs",
+    "predev": "npm run copy-maplibre-worker && npm run prepare-duckdb",
+    "prebuild": "npm run copy-maplibre-worker && npm run prepare-duckdb",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

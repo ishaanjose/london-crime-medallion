@@ -46,3 +46,6 @@ next-env.d.ts
 
 # generated MapLibre worker (copied by predev/prebuild)
 /public/maplibre/
+
+# DuckDB-WASM runtime staged by scripts/prepare-duckdb.mjs (predev/prebuild)
+/public/duckdb/
