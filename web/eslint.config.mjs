@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated or vendored, not our code:
     "public/maplibre/**", // worker copied from node_modules by copy-maplibre-worker
+    "public/duckdb/**", // DuckDB-WASM runtime staged by prepare-duckdb
     ".wrangler/**", // Cloudflare wrangler dev bundles
   ]),
 ]);
