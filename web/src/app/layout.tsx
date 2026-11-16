@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppNav from "@/components/AppNav";
+import { rootMetadata } from "@/lib/siteMetadata";
 import { THEME_INIT_SCRIPT } from "@/lib/themePreference";
 import "./globals.css";
 
@@ -14,10 +15,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "London Crime",
-  description: "London crime, deprivation and outcomes, built on a medallion pipeline",
-};
+export const metadata: Metadata = rootMetadata;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
