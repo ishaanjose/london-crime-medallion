@@ -61,6 +61,7 @@ export default function Reconciliation() {
         sum(police_uk_count)::double as police_uk,
         sum(met_count)::double as met
       from ${R}
+      where borough_code <> 'E09000001'
       group by all
       order by month
     `;
@@ -357,6 +358,11 @@ export default function Reconciliation() {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+
+      <p className="text-xs text-[var(--fg-muted)]">
+        City of London is left out: the Met datastore has almost no rows for
+        it, so the comparison would be uneven.
+      </p>
     </div>
   );
 }
