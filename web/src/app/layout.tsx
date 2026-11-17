@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppNav from "@/components/AppNav";
+import SiteFooter from "@/components/SiteFooter";
 import { rootMetadata } from "@/lib/siteMetadata";
 import { THEME_INIT_SCRIPT } from "@/lib/themePreference";
 import "./globals.css";
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <AppNav />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );
