@@ -1,6 +1,11 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["mcp==2.3.0", "duckdb==2.0.0"]
+# ///
 """MCP server for the London crime medallion data.
 
-Run: .venv/bin/python mcp_server/server.py   (stdio transport)
+Run: uv run --script mcp_server/server.py   (stdio transport; the pins above match
+transform/requirements.txt), or .venv/bin/python mcp_server/server.py
 
 Tools: list_metrics, crime_rate, crime_mix, lookup_postcode, data_quality. Each returns
 JSON with value(s), unit, period, exclusions, caveats and data (the export
